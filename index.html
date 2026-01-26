@@ -40,6 +40,7 @@ function startBusinessAnimation(btn) {
 </script>
 
     <style>
+
         :root { --primary: #2ecc71; --secondary: #34495e; --danger: #e74c3c; --info: #3498db; --bg: #f4f7f6; --warning: #f1c40f; --bls: #BB5500	 }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; display: flex; background: var(--bg); }
         nav { width: 220px; background: var(--secondary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 1000; }
@@ -143,6 +144,35 @@ button.pulse {
 @keyframes spin { to { transform: rotate(360deg); } }
 .operating-title{ font-weight: 800; font-size: 1.05rem; letter-spacing: .02em; }
 .operating-sub{ margin-top: 4px; color: rgba(0,0,0,.55); font-size: .9rem; }
+
+<style>
+/* ===== 手機版面修正 ===== */
+@media (max-width: 768px) {
+
+  /* 主容器改成直向排列 */
+  .container {
+    flex-direction: column !important;
+  }
+
+  /* 左側選單 */
+  .sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid #ccc;
+  }
+
+  /* 右側內容區 */
+  .main,
+  .content,
+  .right-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    overflow-x: auto;
+  }
+}
+</style>
+
 
 </style>
 </head>
