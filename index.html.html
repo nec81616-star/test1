@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>花蓮高商（反職場霸凌指標學校）早餐店模擬器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js">
+function updateBalanceTotals(assets, liabilities, equity){
+  document.getElementById('totalAssets').textContent = assets;
+  document.getElementById('totalLE').textContent = liabilities + equity;
+}
+
+/* ===== 開店天數顯示與動畫 ===== */
+let openingDay = 1;
+
+function updateDayLabel() {
+  const dayLabel = document.getElementById("currentDayLabel");
+  if (dayLabel) {
+    dayLabel.textContent = `今天是開店第${openingDay}天`;
+  }
+}
+
+const originalNextDay = nextDay;
+nextDay = function () {
+  openingDay += 1;
+  updateDayLabel();
+  originalNextDay();
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof generateEvent === 'function') generateEvent();
+
+  updateDayLabel();
+});
+
+function startBusinessAnimation(btn) {
+  
+  setTimeout(() => btn.classList.remove("pulse"), 600);
+}
+
+</script>
+
+    <style>
+        :root { --primary: #2ecc71; --secondary: #34495e; --danger: #e74c3c; --info: #3498db; --bg: #f4f7f6; --warning: #f1c40f; --bls: #BB5500	 }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; display: flex; background: var(--bg); }
+        nav { width: 220px; background: var(--secondary); color: white; height: 100vh; padding: 20px; position: fixed; box-sizing: border-box; z-index: 1000; }
+        nav h2 { color: var(--primary); margin-top: 0; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        nav li { padding: 12px; cursor: pointer; list-style: none; border-radius: 4px; margin-bottom: 5px; transition: 0.3s; }
+        nav li:hover { background: #455a64; }
+        nav li.active { background: var(--primary); }
+        main { margin-left: 240px; padding: 20px; width: calc(100% - 280px); }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; color: white; }
+        .choice-box { display: flex; gap: 15px; margin-top: 20px; }
+        .btn-choice { flex: 1; padding: 20px; border: 2px solid #eee; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+        .btn-choice.selected {
+    border: 3px solid var(--primary);
+    background: #eafff3;
+    box-shadow: 0 0 0 3px rgba(46,204,113,0.15);
+}
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border-bottom: 1px solid #eee; padding: 12px; text-align: left; }
+        .profit { color: var(--primary); font-weight: bold; }
+        .loss { color: var(--danger); font-weight: bold; }
+        .chart-container { position: relative; height: 350px; width: 100%; margin-top: 20px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-buy:disabled { background: #ccc; cursor: not-allowed; }
+        #satisfaction-bar { height: 10px; border-radius: 5px; margin-top: 5px; overflow: hidden; background: #ddd; }
+        #satisfaction-fill { height: 100%; transition: width 0.5s; background: var(--info); }
+    
+        /* --- UI polish --- */
+        .btn { cursor: pointer; border: none; border-radius: 10px; padding: 10px 14px; font-weight: 600; transition: transform .04s ease, filter .12s ease; }
+        .btn:active { transform: translateY(1px); }
+        .btn:hover { filter: brightness(0.98); }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-info { background: var(--info); color: #fff; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-ghost { background: transparent; border: 1px solid rgba(0,0,0,.12); color: var(--secondary); }
+        .input { padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(0,0,0,.15); background: #fff; }
+        .input:focus { outline: none; border-color: rgba(52,152,219,.75); box-shadow: 0 0 0 3px rgba(52,152,219,.18); }
+        table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.08); }
+        tr:hover td { background: rgba(0,0,0,.02); }
+        .card { border-radius: 16px; box-shadow: 0 10px 24px rgba(0,0,0,.06); }
+        nav li { border-radius: 10px; margin: 4px 0; }
+        nav li:hover { background: rgba(255,255,255,.10); }
+        nav li.active { background: rgba(255,255,255,.18); }
+        .muted { color: rgba(0,0,0,.55); }
+        .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin: 8px 0 0; }
+        .no-print { }
+        @media (max-width: 980px) {
+            body { flex-direction: column; }
+            nav { width: auto; position: sticky; top: 0; z-index: 10; }
+            main { padding: 14px; }
+        }
+        @media print {
+            nav, .no-print { display: none !important; }
+            body { display: block; background: #fff; }
+            main { padding: 0; }
+            .page { display: block !important; }
+            .card { box-shadow: none; border: 1px solid #ddd; }
+        }
+
+    
+
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+/* removed pulse */
+button.pulse {
+  animation: pulse 0.6s ease;
+}
+
+
+
+.operating-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.28);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+}
+.operating-overlay.show{ display:flex; }
+.operating-card{
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 22px;
+  min-width: 260px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.20);
+  text-align: center;
+}
+.spinner{
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 4px solid rgba(0,0,0,.12);
+  border-top-color: rgba(46,204,113,.95);
+  margin: 6px auto 10px;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.operating-title{ font-weight: 800; font-size: 1.05rem; letter-spacing: .02em; }
+.operating-sub{ margin-top: 4px; color: rgba(0,0,0,.55); font-size: .9rem; }
+
+</style>
+</head>
+<body>
+
+<nav>
+    <h2>花蓮高商早餐店</h2>
+    <p id="nav-cash">💰 現金: $0</p>
+    <div style="margin-bottom: 20px;">
+        <span class="badge" style="background:var(--info)">滿意度: <span id="sat-text">100</span>%</span>
+        <div id="satisfaction-bar"><div id="satisfaction-fill" style="width: 100%;"></div></div>
+    </div>
+    <ul>
+        <li onclick="showPage('ops')" id="li-ops" class="active">🏠 營運中心</li>
+        <li onclick="showPage('inv')" id="li-inv">📦 物流採購</li>
+        <li onclick="showPage('bank')" id="li-bank">🏦 銀行貸款</li>
+        <li onclick="showPage('finance')" id="li-finance">📊 財務分析</li>
+        <li onclick="showPage('reports')" id="li-reports">📑 報表查詢</li>
+
+    </ul>
+</nav>
+
+<main>
+    <div id="ops" class="page">
+        <h1>今天是開店第<span id="day-text">1</span>天</h1>
+        <div class="card">
+            <span class="badge" id="event-badge" style="background:var(--info)">本日事件</span>
+            <h3 id="event-title">市場分析中...</h3>
+            <p id="event-desc">正在加載今日環境數據...</p>
+            <div class="choice-box">
+                <div class="btn-choice" onclick="handleDecision(true, this)">
+                    <strong>積極作法</strong><br><small id="desc-a"></small>
+                </div>
+                <div class="btn-choice" onclick="handleDecision(false, this)">
+                    <strong>保守作法</strong><br><small id="desc-b">依照既有節奏與流程，降低風險與波動</small>
+                </div>
+            </div>
+        </div>
+        <button class="btn" id="run-btn" style="background:var(--primary); color:white; width:100%; height:50px; font-size:1.2rem; display:none;" id="run-btn" onclick="runDay()">開始營業</button>
+        <div id="daily-log" style="margin-top:15px; color:#666;"></div>
+    </div>
+
+    <div id="inv" class="page" style="display:none">
+        <h1>📦 物流採購 (今日已訂購 <span id="buy-count">0</span> 次)</h1>
+        <div class="card">
+            <table id="inv-table-ui">
+                <thead><tr><th>物料名稱</th><th>庫存數量</th><th>單位基礎成本</th><th>當前訂購價 (含運)</th><th>操作</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="bank" class="page" style="display:none">
+        <h1>🏦 銀行貸款</h1>
+        <div class="card">
+            <h3>目前債務：<span id="debt-text" class="loss">$0</span></h3>
+            <p>日利率：5% (利息於每日營業後結算)</p>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button class="btn" style="background:var(--secondary); color:white" onclick="doLoan(1000)">申請貸款 $1,000</button>
+                <button class="btn" style="background:var(--danger); color:white" onclick="doRepay(1000)">償還貸款 $1,000</button>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="finance" class="page" style="display:none">
+        <h1>📊 財務報表 (2026年)</h1>
+        <div style="display:flex; gap:20px;">
+            <div class="card" style="flex:1">
+                <h3 id="pl-ui-title">綜合損益表（第1日~第1日）</h3>
+                <table id="pl-table-ui">
+                    <tr><td>營業收入 (Revenue)</td><td id="pl-rev">0</td></tr>
+                    <tr><td>銷貨成本 (COGS)</td><td id="pl-cogs">0</td></tr>
+                    <tr style="background:#f9f9f9; font-weight:bold;"><td>營業毛利</td><td id="pl-gp">0</td></tr>
+                    <tr><td>營業費用 (房租)</td><td id="pl-rent">0</td></tr>
+                    <tr><td>財務成本 (利息)</td><td id="pl-int">0</td></tr>
+                    <tr><td>其他損失 (損耗)</td><td id="pl-waste">0</td></tr>
+                    <tr style="background:var(--secondary); color:white; font-weight:bold;"><td>本日淨損益</td><td id="pl-ni">0</td></tr>
+                </table>
+            </div>
+            <div class="card" style="flex:1">
+                <h3 id="bs-ui-title">資產負債表（第1日）</h3>
+                <table id="bs-table-ui">
+                    <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
+                    <tr><td>現金 (Cash)</td><td id="bs-cash">0</td></tr>
+                    <tr><td>存貨價值 (Inv)</td><td id="bs-inv">0</td></tr>
+                    <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>資產總額 (Total Assets)</td><td id="bs-assets-total">0</td></tr>
+                    <tr style="background:#eee"><th>負債與權益 (L+E)</th><th>金額</th></tr>
+                    <tr><td>銀行貸款 (Liabilities)</td><td id="bs-debt">0</td></tr>
+                    <tr><td>本期累積盈餘 (Equity)</td><td id="bs-equity">0</td></tr>
+                    <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>負債及權益總額 (Total L+E)</td><td id="bs-le-total">0</td></tr>
+                    <tr style="font-weight:bold; border-top:2px solid #333;"><td>平衡檢查差額</td><td id="bs-check">0</td></tr>
+                </table>
+            </div>
+        </div>
+
+
+        
+<div class="card">
+  <h3>每日趨勢圖</h3>
+  <div style="display:flex; gap:14px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:320px;">
+      <div class="muted" style="font-weight:700; margin-bottom:8px;">每日營業額</div>
+      <div class="chart-container" style="height:300px;">
+        <canvas id="revChart"></canvas>
+      </div>
+    </div>
+    <div style="flex:1; min-width:320px;">
+      <div class="muted" style="font-weight:700; margin-bottom:8px;">每日利潤</div>
+      <div class="chart-container" style="height:300px;">
+        <canvas id="profitChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+        </div>
+
+<div id="reports" class="page" style="display:none">
+  <h1>📑 報表查詢</h1>
+
+  <div class="card">
+    <h3 id="pl-range-title">指定期間：綜合損益表（第1日~第1日）</h3>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <label>第<input id="pl-start" type="number" min="1" step="1" class="input" style="width:40px;"></label><label>日  到  </label>
+      <label>第<input id="pl-end" type="number" min="1" step="1" class="input" style="width:40px;"></label><label>日</label>
+      <button class="btn" style="background:var(--info); color:white" onclick="renderPLRange()">顯示綜合損益表</button>
+      <button class="btn btn-ghost no-print" onclick="exportPLRangeCSV()">匯出 CSV</button>
+</div>
+
+    <table id="pl-range-table" style="margin-top:12px;">
+      <tr><td>營業收入 (Revenue)</td><td id="rpl-rev">-</td></tr>
+      <tr><td>銷貨成本 (COGS)</td><td id="rpl-cogs">-</td></tr>
+      <tr style="background:#f9f9f9; font-weight:bold;"><td>營業毛利</td><td id="rpl-gp">-</td></tr>
+      <tr><td>營業費用 (房租)</td><td id="rpl-rent">-</td></tr>
+      <tr><td>財務成本 (利息)</td><td id="rpl-int">-</td></tr>
+      <tr><td>其他損失 (損耗)</td><td id="rpl-waste">-</td></tr>
+      <tr><td>人力/活動成本</td><td id="rpl-labor">-</td></tr>
+      <tr style="background:var(--secondary); color:white; font-weight:bold;"><td>期間淨損益</td><td id="rpl-ni">-</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 id="bs-snap-title">指定日：資產負債表（第1日）</h3>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <label>日期(第幾天): <input id="bs-day" type="number" min="1" step="1" class="input" style="width:120px;"></label>
+      <button class="btn" style="background:var(--bls); color:white" onclick="renderBSSnapshot()">顯示資產負債表</button>
+      <button class="btn btn-ghost no-print" onclick="exportBSCSV()">匯出 CSV</button>
+</div>
+
+    <table id="bs-snap-table" style="margin-top:12px;">
+      <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
+      <tr><td>現金 (Cash)</td><td id="rbs-cash">-</td></tr>
+      <tr><td>存貨價值 (Inv)</td><td id="rbs-inv">-</td></tr>
+      <tr style="background:#eee"><th>負債與權益 (L+E)</th><th>金額</th></tr>
+      <tr><td>銀行貸款 (Liabilities)</td><td id="rbs-debt">-</td></tr>
+      <tr><td>權益 (Equity)</td><td id="rbs-equity">-</td></tr>
+      <tr style="font-weight:bold; border-top:2px solid #333;"><td>平衡檢查差額</td><td id="rbs-check">-</td></tr>
+    </table>
+
+    <div id="bs-msg" style="margin-top:10px; color:#666;"></div>
+  </div>
+</div>
+
+</main>
+
+<script>
+    const CONFIG = {
+        initEquity: 3000,
+        matCost: { '麵粉': 3, '蛋': 5, '肉片': 12, '吐司': 4 },
+        initInv: { '麵粉': 40, '蛋': 40, '肉片': 20, '吐司': 40 },
+        menu: {
+            '蛋餅': { price: 45, recipe: {'麵粉':1, '蛋':1} },
+            '三明治': { price: 65, recipe: {'吐司':2, '蛋':1, '肉片':1} }
+        },
+        rent: 200, ship: 50, interest: 0.05
+    };
+
+    let state = {
+        day: 1, cash: 0, debt: 0, equity: 3000,
+        inventory: {...CONFIG.initInv},
+        buyCount: 0, history: [],
+        satisfaction: 100,
+        decision: { factor: 1, waste: 0, cashCost: 0, satPenalty: 0 }
+    };
+
+    let chartRev = null;
+    let chartProfit = null;
+
+    function init() {
+        const invV = getInvValue(state.inventory);
+        state.cash = CONFIG.initEquity - invV;
+        updateGlobalUI();
+        generateEvent();
+    }
+
+    function generateEvent() {
+        const events = [
+  // A: cashCost（臨時人力費/活動成本）
+  // B: sat（滿意度立即代價；可為負=人氣上升）
+  // C: w（額外損耗率加成）
+
+  { t: '上班族團購訂單', d: '上班族團購詢問：附近公司想一次訂大量早餐，並希望準時到貨。', aDesc: '接受團購訂單並加開製作節奏；需安排分工、出餐動線與交付時間，避免現場排隊失控。', bDesc: '婉拒團購或僅接受少量預訂；優先照顧現場客流，維持品質與出餐穩定，降低人力與備料壓力。', f: 1.5, w: 0.02, cashCost: 120, sat: 3 },
+  { t: '美食部落客開箱', d: '社群與在地美食部落客突然想跟你合作，做一次美食早餐開箱提升曝光，來客量可能在短時間暴增。', aDesc: '主動加派人手、調整菜單與出餐流程（例如暫停耗時品項、設置快速取餐區），把握熱度。', bDesc: '維持原流程、控制接單速度；以穩定品質為優先，避免因忙亂導致抱怨與負評擴散。', f: 2.5, w: 0.10, cashCost: 300, sat: 5 },
+
+  // === 新增每日事件 ===
+  { t: '學生長時間佔位', d: '一群學生長時間佔用座位、聊天讀書，影響翻桌率與其他顧客體驗。', aDesc: '以柔性方式引導（例如提醒用餐時段、提供加點續坐方案），維持氣氛與口碑，但座位將被占用。', bDesc: '明確規範用餐時間並禮貌勸導；可改善座位占用情形，但需注意溝通方式，避免引顧客發衝突與負面觀感。', f: 0.6, w: 0.00, cashCost: 0, sat: -1, fB: 1.2, wB: 0.00, cashCostB: 40, satB: 15 },
+  { t: '道路施工封路', d: '門口道路施工封路，出入不便、客流可能受影響。', aDesc: '照常營業並調整動線（招牌指引、外帶窗口、提前備料）；努力維持曝光與服務，但因人潮銳減營運壓力將會上升。', bDesc: '暫停營業或縮短時段；保全人力與食材風險，等待施工結束再恢復正常，但是暫時店休將會影響人氣。', f: 0.5, w: 0.05, cashCost: 0, sat: -1, fB: 0.0, wB: 0.07, cashCostB: 0, satB: 8 },
+  { t: '熟客介紹朋友', d: '熟客帶朋友來第一次消費，現場氣氛友善，是建立口碑的好時機。', aDesc: '更主動招待與介紹（例如推薦招牌、提供小驚喜），並提供打折；加深印象、提高回訪機率。', bDesc: '維持正常服務水準；確保出餐與品質一致，避免為了招待特定客人而影響其他用餐者。', f: 0.8, w: 0.00, cashCost: 0, sat: -5, fB: 1.0, wB: 0.00, cashCostB: 0, satB: 7 },
+
+  { 
+  t: '下雨天', 
+  d: '天候轉差，行人變少、外送與現場動線也更複雜。', 
+  aDesc: '仍然照平常日準備餐點，維持服務體驗。', 
+  bDesc: '降低投入、保守控量（例如縮短備料或提前收攤規劃），以降低風險與耗損。', 
+  f: 0.8, 
+  w: 0.12, 
+  cashCost: 320, 
+  sat: 0,
+  satDecline: -2
+}
+
+];
+
+        const e = events[Math.floor(Math.random()*events.length)];
+        document.getElementById('event-title').innerText = e.t;
+        document.getElementById('event-desc').innerText = e.d;
+        document.getElementById('desc-a').innerText = e.aDesc ?? '採取較積極的應對方式，爭取更多機會，但也需要更精細的現場控管';
+        document.getElementById('desc-b').innerText = e.bDesc ?? '採取保守策略，維持既有節奏，避免額外負擔與風險';
+        state.pendingEvent = e;
+        document.getElementById('run-btn').style.display = 'none';
+    }
+
+    function handleDecision(accept, target) {
+    // 甜頭 / 代價 全部集中在 decision（runDay 只讀 decision）
+    state.decision.factor = accept ? (state.pendingEvent.f ?? 1.0) : (state.pendingEvent.fB ?? 1.0);
+    state.decision.waste  = accept ? (state.pendingEvent.w ?? 0)   : (state.pendingEvent.wB ?? 0);
+
+    // A+B：依選項承擔代價
+    state.decision.cashCost = accept ? (state.pendingEvent.cashCost || 0) : (state.pendingEvent.cashCostB || 0);
+
+    if (accept) {
+        state.decision.satPenalty = state.pendingEvent.sat ?? 0;          // A：滿意度變動（可為負=加分）
+    } else {
+        // B：若有 satB 則以 satB 為準；否則沿用舊版 satDecline（下雨天用）
+        state.decision.satPenalty = (state.pendingEvent.satB ?? state.pendingEvent.satDecline) ?? 0;
+    }
+
+    // 描邊選取
+    document.querySelectorAll('.btn-choice').forEach(el => el.classList.remove('selected'));
+    if (target) target.classList.add('selected');
+
+    document.getElementById('run-btn').style.display = 'block';
+}
+
+
+    function runDay() {
+        const btn = document.getElementById('run-btn');
+        if (btn) {
+            btn.classList.remove('pulse');
+            // force reflow for retrigger
+            
+            btn.classList.add('pulse');
+        }
+
+        const custBase = 50 * (state.satisfaction / 100);
+        let actualCust = Math.floor(custBase * state.decision.factor * (0.8 + Math.random() * 0.4));
+        let rev = 0, cogs = 0, lost = 0;
+        const prods = Object.keys(CONFIG.menu);
+
+        for(let i=0; i<actualCust; i++) {
+            const pName = prods[Math.floor(Math.random()*prods.length)];
+            const p = CONFIG.menu[pName];
+            let canMake = true;
+            for(let r in p.recipe) { if(state.inventory[r] < p.recipe[r]) canMake = false; }
+            if(canMake) {
+                for(let r in p.recipe) { state.inventory[r] -= p.recipe[r]; cogs += CONFIG.matCost[r] * p.recipe[r]; }
+                rev += p.price;
+            } else { lost++; }
+        }
+
+        state.satisfaction = lost > 0 ? Math.max(0, state.satisfaction - Math.floor(lost/2)) : Math.min(100, state.satisfaction + 2);
+
+        let wasteVal = 0;
+        let wasteRate = (Object.values(state.inventory).reduce((a,b)=>a+b, 0) > 100 ? 0.03 : 0) + state.decision.waste;
+        for(let r in state.inventory) { let l = state.inventory[r] * wasteRate; state.inventory[r] -= l; wasteVal += l * CONFIG.matCost[r]; }
+
+const laborCost = state.decision.cashCost || 0;   // A：現金成本
+const intFee = state.debt * CONFIG.interest;
+
+// profit 要把 laborCost 算進去
+const profit = rev - cogs - CONFIG.rent - wasteVal - intFee - laborCost;
+
+// 現金也要扣掉 laborCost
+state.cash += (rev - CONFIG.rent - intFee - laborCost);
+state.equity += profit;
+
+// B：滿意度代價（在缺貨造成的滿意度變動後，再扣一次）
+state.satisfaction = Math.max(0, state.satisfaction - (state.decision.satPenalty || 0));
+
+const invEnd = getInvValue(state.inventory);
+
+
+// 記錄歷史（可加上 laborCost 方便報表/除錯）
+state.history.push({
+  day: state.day,
+  rev, cogs,
+  rent: CONFIG.rent,
+  waste: wasteVal,
+  int: intFee,
+  labor: laborCost,
+  ni: profit,
+
+  // === B/S 快照（第 X 天結算後）===
+  cashEnd: state.cash,
+  invEnd: invEnd,
+  debtEnd: state.debt,
+  equityEnd: state.equity
+});
+
+
+        document.getElementById('daily-log').innerText = `開店第${state.day}天 營運日誌：營收 $${rev.toFixed(0)}，損失訂單 ${lost} 筆。`;
+        state.day++;
+        state.buyCount = 0;
+        generateEvent();
+        updateGlobalUI();
+    }
+
+    function buy(r) {
+        let surge = 1 + (state.buyCount * 0.1);
+        let baseVal = CONFIG.matCost[r] * 20;
+        let total = (baseVal * surge) + CONFIG.ship;
+        if(state.cash >= total) {
+            state.cash -= total;
+            state.inventory[r] += 20;
+            state.equity -= (total - baseVal);
+            state.buyCount++;
+            renderInv();
+            updateGlobalUI();
+        }
+    }
+
+    // 貸款功能修復：確保數據與 UI 同步
+function doLoan(amt) {
+    const ratio = getDebtRatio();
+    if (ratio > 0.8) {
+        alert(`銀行拒絕貸款：負債比率 ${(ratio*100).toFixed(1)}% > 80%`);
+        return;
+    }
+
+    state.cash += amt;
+    state.debt += amt;
+
+    updateGlobalUI();
+    if(document.getElementById('finance').style.display === 'block') renderFinance();
+}
+
+
+    function doRepay(amt) {
+        // 若未傳入金額，且頁面上仍存在舊版輸入框，則讀取輸入框
+        let raw = Number(amt);
+        if (!raw) {
+            const input = document.getElementById('repay-amt');
+            if (!input) return;
+            raw = Number(input.value);
+        }
+
+        const repayAmt = Math.floor(raw);
+        if (!repayAmt || repayAmt <= 0) return;
+
+        const pay = Math.min(repayAmt, state.cash, state.debt);
+        state.cash -= pay;
+        state.debt -= pay;
+
+        const input = document.getElementById('repay-amt');
+        if (input) input.value = '';
+
+        updateGlobalUI();
+        if (document.getElementById('finance').style.display === 'block') renderFinance();
+    }
+
+    function updateGlobalUI() {
+        document.getElementById('nav-cash').innerText = `💰 現金: $${Math.floor(state.cash)}`;
+        document.getElementById('day-text').innerText = `${state.day}`;
+        document.getElementById('sat-text').innerText = state.satisfaction;
+        document.getElementById('satisfaction-fill').style.width = state.satisfaction + "%";
+        document.getElementById('debt-text').innerText = `$${Math.floor(state.debt)}`;
+    }
+
+function showPage(p) {
+        document.querySelectorAll('.page').forEach(x => x.style.display = 'none');
+        document.querySelectorAll('nav li').forEach(x => x.className = '');
+        document.getElementById(p).style.display = 'block';
+        document.getElementById('li-'+p).className = 'active';
+        if(p === 'inv') renderInv();
+        if(p === 'finance') setTimeout(renderFinance, 100);
+        if(p === 'reports') initReports();
+    }
+
+    function renderInv() {
+        document.getElementById('buy-count').innerText = state.buyCount;
+        const surge = 1 + (state.buyCount * 0.1);
+        const tbody = document.querySelector('#inv-table-ui tbody');
+        tbody.innerHTML = '';
+        for(let r in state.inventory) {
+            let price = (CONFIG.matCost[r] * 20 * surge) + CONFIG.ship;
+            tbody.innerHTML += `<tr><td>${r}</td><td>${state.inventory[r].toFixed(1)}</td><td>$${CONFIG.matCost[r]}</td><td>$${price.toFixed(0)}</td>
+            <td><button class="btn" style="background:var(--info);color:white" onclick="buy('${r}')" ${state.cash < price ? 'disabled' : ''}>訂購 20單位</button></td></tr>`;
+        }
+    }
+
+    function getInvValue(inv) { return Object.keys(inv).reduce((sum, r) => sum + inv[r] * CONFIG.matCost[r], 0); }
+function getTotalAssets() {
+    const invV = getInvValue(state.inventory);
+    return state.cash + invV;
+}
+
+function getDebtRatio() {
+    const assets = getTotalAssets();
+    if (assets <= 0) return 1; // 資產<=0 視為高風險
+    return state.debt / assets;
+}
+
+
+    function renderFinance() {
+        const last = state.history[state.history.length-1] || {rev:0, cogs:0, rent:0, waste:0, int:0, ni:0};
+        const lastDay = last?.day || Math.max(1, state.day - 1);
+        const plTitle = document.getElementById('pl-ui-title');
+        if (plTitle) plTitle.innerText = `綜合損益表（第${lastDay}日~第${lastDay}日）`;
+        const bsTitle = document.getElementById('bs-ui-title');
+        if (bsTitle) bsTitle.innerText = `資產負債表（第${Math.max(1, state.day - 1)}日）`;
+
+        const invV = getInvValue(state.inventory);
+        const totalA = state.cash + invV;
+        const totalLE = state.debt + state.equity;
+
+        document.getElementById('pl-rev').innerText = `$${last.rev.toFixed(0)}`;
+        document.getElementById('pl-cogs').innerText = `-$${last.cogs.toFixed(0)}`;
+        document.getElementById('pl-gp').innerText = `$${(last.rev - last.cogs).toFixed(0)}`;
+        document.getElementById('pl-rent').innerText = `-$${last.rent}`;
+        document.getElementById('pl-int').innerText = `-$${last.int.toFixed(0)}`;
+        document.getElementById('pl-waste').innerText = `-$${last.waste.toFixed(0)}`;
+        const niEl = document.getElementById('pl-ni');
+        niEl.innerText = `$${last.ni.toFixed(0)}`;
+        niEl.className = last.ni >= 0 ? 'profit' : 'loss';
+
+        document.getElementById('bs-cash').innerText = `$${state.cash.toFixed(0)}`;
+        document.getElementById('bs-inv').innerText = `$${invV.toFixed(0)}`;
+        document.getElementById('bs-assets-total').innerText = `$${totalA.toFixed(0)}`;
+        document.getElementById('bs-debt').innerText = `$${state.debt.toFixed(0)}`;
+        document.getElementById('bs-equity').innerText = `$${state.equity.toFixed(0)}`;
+        document.getElementById('bs-le-total').innerText = `$${totalLE.toFixed(0)}`;
+        document.getElementById('bs-check').innerText = `$${(totalA - totalLE).toFixed(2)}`;
+
+        
+        const labels = state.history.map(h => `第${h.day}日`);
+        const revData = state.history.map(h => h.rev);
+        const profitData = state.history.map(h => h.ni);
+
+        const ctxRev = document.getElementById('revChart')?.getContext('2d');
+        const ctxProfit = document.getElementById('profitChart')?.getContext('2d');
+
+        if (ctxRev) {
+            if (chartRev) chartRev.destroy();
+            chartRev = new Chart(ctxRev, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label: '營業收入', data: revData, backgroundColor: 'rgba(46, 204, 113, 0.75)' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        if (ctxProfit) {
+            if (chartProfit) chartProfit.destroy();
+            chartProfit = new Chart(ctxProfit, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label: '本日淨利', data: profitData, backgroundColor: profitData.map(v => v >= 0 ? 'rgba(241, 196, 15, 0.85)' : 'rgba(231, 76, 60, 0.85)') }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+}
+
+function getMaxOperatedDay() {
+    return state.history.length ? state.history[state.history.length - 1].day : 0;
+}
+function readDayInput(id) {
+    const v = Number(document.getElementById(id)?.value);
+    return Math.floor(v);
+}
+
+function clampDay(d) {
+    const maxDay = Math.max(1, getMaxOperatedDay());
+    d = Math.floor(Number(d));
+    if (!d || d < 1) return 1;
+    if (d > maxDay) return maxDay;
+    return d;
+}
+
+function renderPLRange() {
+    const maxDay = getMaxOperatedDay();
+    if (maxDay < 1) {
+        alert('您指定的日期尚未經營，因此無法顯示報表');
+        return;
+    }
+
+    const startRaw = readDayInput('pl-start');
+    const endRaw = readDayInput('pl-end');
+
+    if (!startRaw || !endRaw || startRaw < 1 || endRaw < 1) {
+        alert('請輸入有效的日期（第幾日）');
+        return;
+    }
+
+    // 防呆：包含未經營（未來）日期
+    if (startRaw > maxDay || endRaw > maxDay) {
+        alert('您指定的日期尚未經營，因此無法顯示報表');
+        return;
+    }
+
+    // 防呆：起始日不可大於截止日
+    if (startRaw > endRaw) {
+        alert('起始日不可大於截止日');
+        return;
+    }
+
+    const start = startRaw;
+    const end = endRaw;
+
+    lastPLRangeTitle = `指定期間：綜合損益表（第${start}日~第${end}日）`;
+    const t = document.getElementById('pl-range-title');
+    if (t) t.innerText = lastPLRangeTitle;
+
+    const rows = state.history.filter(h => h.day >= start && h.day <= end);
+    const sum = (k) => rows.reduce((a, h) => a + (Number(h[k]) || 0), 0);
+
+    const rev = sum('rev');
+    const cogs = sum('cogs');
+    const rent = sum('rent');
+    const interest = sum('int');
+    const waste = sum('waste');
+    const labor = sum('labor');
+    const ni = sum('ni');
+    const gp = rev - cogs;
+
+    document.getElementById('rpl-rev').innerText = `$${rev.toFixed(0)}`;
+    document.getElementById('rpl-cogs').innerText = `-$${cogs.toFixed(0)}`;
+    document.getElementById('rpl-gp').innerText = `$${gp.toFixed(0)}`;
+    document.getElementById('rpl-rent').innerText = `-$${rent.toFixed(0)}`;
+    document.getElementById('rpl-int').innerText = `-$${interest.toFixed(0)}`;
+    document.getElementById('rpl-waste').innerText = `-$${waste.toFixed(0)}`;
+    document.getElementById('rpl-labor').innerText = `-$${labor.toFixed(0)}`;
+    document.getElementById('rpl-ni').innerText = `$${ni.toFixed(0)}`;
+}
+
+function renderBSSnapshot() {
+    const maxDay = getMaxOperatedDay();
+    if (maxDay < 1) {
+        alert('您指定的日期尚未經營，因此無法顯示報表');
+        return;
+    }
+
+    const dRaw = readDayInput('bs-day');
+    if (!dRaw || dRaw < 1) {
+        alert('請輸入有效的日期（第幾日）');
+        return;
+    }
+
+    // 防呆：包含未經營（未來）日期
+    if (dRaw > maxDay) {
+        alert('您指定的日期尚未經營，因此無法顯示報表');
+        return;
+    }
+
+    const d = dRaw;
+
+    lastBSSnapTitle = `指定日：資產負債表（顯示第${d}日）`;
+    const t = document.getElementById('bs-snap-title');
+    if (t) t.innerText = lastBSSnapTitle;
+
+    const h = state.history.find(x => x.day === d);
+    const msg = document.getElementById('bs-msg');
+
+    if (!h || h.cashEnd === undefined) {
+        if (msg) msg.innerText = `找不到第${d}日的資產負債表資料`;
+        return;
+    }
+
+    const cash = Number(h.cashEnd) || 0;
+    const inv = Number(h.invEnd) || 0;
+    const debt = Number(h.debtEnd) || 0;
+    const equity = Number(h.equityEnd) || 0;
+
+    const assets = cash + inv;
+    const le = debt + equity;
+
+    document.getElementById('rbs-cash').innerText = `$${cash.toFixed(0)}`;
+    document.getElementById('rbs-inv').innerText = `$${inv.toFixed(0)}`;
+    document.getElementById('rbs-debt').innerText = `$${debt.toFixed(0)}`;
+    document.getElementById('rbs-equity').innerText = `$${equity.toFixed(0)}`;
+    document.getElementById('rbs-check').innerText = `$${(assets - le).toFixed(2)}`;
+}
+
+    init();
+
+    let lastPLRangeTitle = '指定期間：綜合損益表';
+let lastBSSnapTitle = '指定日：資產負債表';
+
+// --- Report utilities (CSV export / print) ---
+    function initReports() {
+        const maxDay = Math.max(1, state.day - 1);
+        const plStart = document.getElementById('pl-start');
+        const plEnd = document.getElementById('pl-end');
+        const bsDay = document.getElementById('bs-day');
+        if (plStart && (plStart.value === '' || Number(plStart.value) < 1)) plStart.value = 1;
+        if (plEnd && (plEnd.value === '' || Number(plEnd.value) < 1)) plEnd.value = maxDay;
+        if (bsDay && (bsDay.value === '' || Number(bsDay.value) < 1)) bsDay.value = maxDay;
+        // refresh titles with default values
+        const t1 = document.getElementById('pl-range-title');
+        if (t1) t1.innerText = `指定期間：綜合損益表（第${plStart.value}日~第${plEnd.value}日）`;
+        const t2 = document.getElementById('bs-snap-title');
+        if (t2) t2.innerText = `指定日：資產負債表（顯示第${bsDay.value}日）`;
+    }
+
+    function downloadCSV(filename, rows) {
+        const escapeCell = (v) => {
+            const s = String(v ?? '');
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const csv = rows.map(r => r.map(escapeCell).join(',')).join('\n');
+        const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function exportPLRangeCSV() {
+        const maxDay = getMaxOperatedDay();
+        if (maxDay < 1) {
+            alert('您指定的日期尚未經營，因此無法顯示報表');
+            return;
+        }
+
+        const startRaw = readDayInput('pl-start');
+        const endRaw = readDayInput('pl-end');
+
+        if (!startRaw || !endRaw || startRaw < 1 || endRaw < 1) {
+            alert('請輸入有效的日期（第幾日）');
+            return;
+        }
+
+        // 防呆：包含未經營（未來）日期
+        if (startRaw > maxDay || endRaw > maxDay) {
+            alert('您指定的日期尚未經營，因此無法顯示報表');
+            return;
+        }
+
+        // 防呆：起始日不可大於截止日
+        if (startRaw > endRaw) {
+            alert('起始日不可大於截止日');
+            return;
+        }
+
+        // 確保表格內容與日期一致
+        renderPLRange();
+
+        const start = startRaw;
+        const end = endRaw;
+
+        const rows = [
+            ['期間損益表 (P/L)', `第${start}日`, `~ 第${end}日`],
+            ['項目', '金額']
+        ];
+        const map = [
+            ['營業收入(Revenue)', 'rpl-rev'],
+            ['銷貨成本(COGS)', 'rpl-cogs'],
+            ['營業毛利', 'rpl-gp'],
+            ['營業費用(房租)', 'rpl-rent'],
+            ['財務成本(利息)', 'rpl-int'],
+            ['其他損失(損耗)', 'rpl-waste'],
+            ['人力/活動成本', 'rpl-labor'],
+            ['期間淨損益', 'rpl-ni'],
+        ];
+        map.forEach(([label, id]) => rows.push([label, document.getElementById(id)?.innerText ?? '']));
+        downloadCSV(`PL_day${start}-day${end}.csv`, rows);
+    }
+
+    function exportBSCSV() {
+        const maxDay = getMaxOperatedDay();
+        if (maxDay < 1) {
+            alert('您指定的日期尚未經營，因此無法顯示報表');
+            return;
+        }
+
+        const dRaw = readDayInput('bs-day');
+        if (!dRaw || dRaw < 1) {
+            alert('請輸入有效的日期（第幾日）');
+            return;
+        }
+
+        // 防呆：包含未經營（未來）日期
+        if (dRaw > maxDay) {
+            alert('您指定的日期尚未經營，因此無法顯示報表');
+            return;
+        }
+
+        // 確保表格內容與日期一致
+        renderBSSnapshot();
+
+        const day = dRaw;
+        const rows = [
+            ['指定日資產負債表 (B/S)', `第${day}日`],
+            ['類別', '項目', '金額'],
+            ['資產', '現金(Cash)', document.getElementById('rbs-cash')?.innerText ?? ''],
+            ['資產', '存貨價值(Inv)', document.getElementById('rbs-inv')?.innerText ?? ''],
+            ['負債', '銀行貸款(Liabilities)', document.getElementById('rbs-debt')?.innerText ?? ''],
+            ['權益', '權益(Equity)', document.getElementById('rbs-equity')?.innerText ?? ''],
+            ['校驗', '平衡檢查差額', document.getElementById('rbs-check')?.innerText ?? ''],
+        ];
+        downloadCSV(`BS_day${day}.csv`, rows);
+    }
+
+    function updateBalanceTotals(assets, liabilities, equity){
+  document.getElementById('totalAssets').textContent = assets;
+  document.getElementById('totalLE').textContent = liabilities + equity;
+}
+</script>
+
+
+</div>
+
+</body>
+</html>
