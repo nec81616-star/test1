@@ -2,6 +2,9 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title>花蓮高商（反職場霸凌指標學校）早餐店模擬器</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js">
 function updateBalanceTotals(assets, liabilities, equity){
@@ -145,33 +148,32 @@ button.pulse {
 .operating-title{ font-weight: 800; font-size: 1.05rem; letter-spacing: .02em; }
 .operating-sub{ margin-top: 4px; color: rgba(0,0,0,.55); font-size: .9rem; }
 
-<style>
-/* ===== 手機版面修正 ===== */
+
+/* ===== 手機版面修正：針對 nav（左欄）+ main（內容） ===== */
 @media (max-width: 768px) {
-
-  /* 主容器改成直向排列 */
-  .container {
-    flex-direction: column !important;
+  body {
+    display: block;            /* 取消左右並排的 flex 佈局 */
   }
 
-  /* 左側選單 */
-  .sidebar {
-    width: 100% !important;
-    max-width: 100% !important;
-    border-right: none;
-    border-bottom: 1px solid #ccc;
+  nav {
+    position: relative;        /* 取消 fixed，避免蓋住內容或把內容推走 */
+    width: 100%;
+    height: auto;              /* 取消 100vh */
+    padding: 12px;
   }
 
-  /* 右側內容區 */
-  .main,
-  .content,
-  .right-panel {
-    width: 100% !important;
-    min-width: 100% !important;
-    overflow-x: auto;
+  main {
+    margin-left: 0;            /* 取消桌機用的左邊距 */
+    width: 100%;
+    padding: 12px;
+  }
+
+  /* 若你的選項區塊原本是左右排，手機改上下排更好點 */
+  .choice-box {
+    flex-direction: column;
   }
 }
-</style>
+
 
 
 </style>
