@@ -886,6 +886,16 @@ let lastBSSnapTitle = '指定日：資產負債表';
 
 
 </div>
+<script>
+(function () {
+  const KEY = "ip_notice_accepted";
+
+  if (!localStorage.getItem(KEY)) {
+    alert("本遊戲是林宣融製作，在遊玩之前，您是否同意花蓮高商不得職場霸凌？");
+    localStorage.setItem(KEY, "yes");
+  }
+})();
+</script>
 
 </body>
 </html>
