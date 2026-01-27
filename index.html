@@ -5,7 +5,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>花蓮高商（反職場霸凌指標學校）早餐店模擬器</title>
+    <title>早餐店模擬器</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js">
 function updateBalanceTotals(assets, liabilities, equity){
   document.getElementById('totalAssets').textContent = assets;
@@ -18,7 +18,7 @@ let openingDay = 1;
 function updateDayLabel() {
   const dayLabel = document.getElementById("currentDayLabel");
   if (dayLabel) {
-    dayLabel.textContent = `今天是開店第${openingDay}天`;
+    dayLabel.textContent = `今天是開店第 ${openingDay} 天`;
   }
 }
 
@@ -219,29 +219,139 @@ button.pulse {
   font-weight: 600;
 }
 
-.prep-text{
-  font-weight: 800;
-  font-size: 1.1rem;
-  line-height: 1.5;
-  color: rgba(0,0,0,.82);
-  text-shadow: 0 1px 0 rgba(255,255,255,.6);
+/* ===== 開店前提醒文字放大 ===== */
+.prep-text-big{
+  font-size: 2rem;        /* 明顯放大 */
+  line-height: 2;
+  text-align: center;
 }
+
+/* ===== 按鈕移到第二排 ===== */
+.prep-actions-bottom{
+  margin-top: 0px;         /* 與文字拉開距離 */
+  flex-direction: row;
+}
+
+
+
+/* ===== 行銷策略 ===== */
+.mkt-grid{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.mkt-item{
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.10);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.mkt-btn{
+  width: 100%;
+  text-align: left;
+  background: #ffffff;
+  color: #111;
+  border: 1px solid rgba(0,0,0,.14);
+  padding: 10px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1.05rem;
+  transition: transform .04s ease, filter .12s ease, background .12s ease, border-color .12s ease;
+}
+.mkt-btn:hover{ filter: brightness(1.02); }
+.mkt-btn:active{ transform: translateY(1px); }
+.mkt-btn.selected{
+  background: rgba(46,204,113,.12);
+  border-color: rgba(46,204,113,.55);
+  box-shadow: 0 0 0 3px rgba(46,204,113,.14);
+}
+.mkt-desc{
+  margin-top: 8px;
+  font-size: .95rem;
+  line-height: 1.35;
+  color: rgba(0,0,0,.70);
+}
+.mkt-note{ margin-top: 10px; font-size: .84rem; opacity: .90; line-height:1.4; }
+@media (max-width: 900px){
+  .mkt-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px){
+  .mkt-grid{ grid-template-columns: 1fr; }
+}
+
+/* ===== 營運中心儀表板 ===== */
+.dash-card{
+  background: linear-gradient(135deg, rgba(0, 210, 255, 0.22), rgba(58, 123, 213, 0.18));
+  border: 1px solid rgba(0,0,0,.06);
+}
+.dash-card .dash-tile{
+  background: rgba(255,255,255,.92);
+}
+.dash-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 14px;
+}
+@media (max-width: 980px){
+  .dash-grid{ grid-template-columns: 1fr; }
+}
+.dash-tile{
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 16px;
+  padding: 14px 14px 12px;
+  background: #fff;
+}
+.dash-title{ font-weight: 800; color: rgba(0,0,0,.70); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.dash-value{ font-size: 1.35rem; font-weight: 900; margin-top: 8px; }
+.bulb{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.06);
+  border: 1px solid rgba(0,0,0,.10);
+  font-size: 16px;
+}
+.bulb.on{
+  background: rgba(241,196,15,.22);
+  border-color: rgba(241,196,15,.55);
+  box-shadow: 0 0 0 4px rgba(241,196,15,.18);
+}
+.inv-safe{ color: var(--success); font-weight: 900; }
+.inv-warn{ color: var(--danger); font-weight: 900; }
+
+/* ===== 本日事件：橘色底 ===== */
+#daily-event-card{
+  background: linear-gradient(
+    135deg,
+    #FFE4C1,   /* 淺橘 */
+    #FFED97    /* 偏橘 */
+  );
+  border: 1px solid #FFB74D;
+}
+
+
 
 </style>
 </head>
 <body>
 
 <nav>
-    <h2>花蓮高商早餐店</h2>
-    <p id="nav-cash">💰 現金: $0</p>
-    <div style="margin-bottom: 20px;">
-        <span class="badge" style="background:var(--info)">滿意度: <span id="sat-text">100</span>%</span>
-        <div id="satisfaction-bar"><div id="satisfaction-fill" style="width: 100%;"></div></div>
+    <h2><span id="storeName">快樂早餐店</span></h2>
+
+    <div style="margin:10px 0 14px;">
+      <div style="font-size:.85rem; opacity:.85; margin-bottom:6px;">店名（可自行輸入）</div>
+      <input id="storeNameInput" class="input" type="text" placeholder="輸入店名" style="width:100%; box-sizing:border-box;">
     </div>
-    <ul>
+<ul>
         <li onclick="showPage('ops')" id="li-ops" class="active">🏠 營運中心</li>
         <li onclick="showPage('inv')" id="li-inv">📦 原料採購</li>
-        <li onclick="showPage('bank')" id="li-bank">🏦 銀行貸款</li>
+        <li onclick="showPage('mkt')" id="li-mkt">📣 行銷策略</li>
+        <li onclick="showPage('bank')" id="li-bank">🏦 銀行往來</li>
         <li onclick="showPage('finance')" id="li-finance">📊 財務分析</li>
         <li onclick="showPage('reports')" id="li-reports">📑 報表查詢</li>
 
@@ -250,7 +360,38 @@ button.pulse {
 
 <main>
     <div id="ops" class="page">
-        <h1>今天是開店第<span id="day-text">1</span>天</h1>
+        <h1>🏠營運中心 (今天是開店第<span id="day-text">1</span>天) </h1>
+
+        <div class="card dash-card" style="padding:16px;">
+          <div style="font-weight:900; margin-bottom:10px;">📌 營運中心儀表板</div>
+          <div class="dash-grid">
+            
+            <div class="dash-tile">
+              <div class="dash-title">💰 營運資金 <span class="badge" style="background:var(--info)">即時數據</span></div>
+              <div class="dash-value" id="dash-cash">$0</div>
+              <div class="muted" style="margin-top:8px;">可立即動用資金</div>
+            </div>
+<div class="dash-tile">
+              <div class="dash-title">😊 顧客滿意度 <span class="badge" style="background:var(--primary)">每日決策</span></div>
+              <div class="dash-value"><span id="sat-text">100</span>%</div>
+              <div id="satisfaction-bar" style="margin-top:8px;"><div id="satisfaction-fill" style="width: 100%;"></div></div>
+              <div class="muted" style="margin-top:8px;">滿意度會影響來客量基準。</div>
+            </div>
+
+            <div class="dash-tile">
+              <div class="dash-title">📦 原料庫存 <span class="badge" style="background:var(--info)">即時數據</span></div>
+              <div class="dash-value"><span id="inv-status">安全</span></div>
+              <div class="muted" style="margin-top:8px;">請到「原料採購」中進行補充</div>
+            </div>
+
+            <div class="dash-tile">
+              <div class="dash-title">📣 目前行銷方案 <span class="badge" style="background:var(--primary)">每日決策</span></div>
+              <div class="dash-value" id="mkt-current">—</div>
+              <div class="muted" style="margin-top:8px;">「行銷策略」中選定後會套用到今日營業。</div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" id="daily-event-card">
             <span class="badge" id="event-badge" style="background:var(--info)">本日事件</span>
             <h3 id="event-title">市場分析中...</h3>
@@ -264,13 +405,17 @@ button.pulse {
                 </div>
             </div>
         
-            <div class="prep-mask" id="prep-mask">
-                <div class="prep-text">你準備好開店了嗎？記得先採購喔！</div>
-                
-                <div class="prep-actions">
-                  <button id="prep-buy" class="prep-ok secondary">前往採購</button>
-                  <button id="prep-ok" class="prep-ok">直接營業</button>
-                </div>
+<div class="prep-mask" id="prep-mask">
+    <div class="prep-text prep-text-big">
+        你準備好開店了嗎？<br>記得先採購喔！
+    </div>
+
+    <!-- 第二排按鈕 -->
+    <div class="prep-actions prep-actions-bottom">
+        <button id="prep-buy" class="prep-ok secondary">前往採購</button>
+        <button id="prep-ok" class="prep-ok">直接營業</button>
+    </div>
+</div>
     
             </div>
 </div>
@@ -288,15 +433,63 @@ button.pulse {
         </div>
     </div>
 
-    <div id="bank" class="page" style="display:none">
-        <h1>🏦 銀行貸款</h1>
+    
+    <div id="mkt" class="page" style="display:none;">
+        <h1>📣 行銷策略</h1>
+        <div class="card" style="padding:16px;">
+          <div style="font-weight:900; margin-bottom:10px;">選擇你的行銷方案（可隨時更改）</div>
+          <div class="mkt-grid">
+            <div class="mkt-item">
+              <button class="mkt-btn" data-mkt="none" onclick="chooseMarketing('none', this)">🚫 不行銷</button>
+              <div class="mkt-desc">維持現有營運方式，不額外進行宣傳活動。店家不需投入行銷相關支出，顧客來源主要來自既有客群與自然經過的人潮。</div>
+            </div>
+            <div class="mkt-item">
+              <button class="mkt-btn" data-mkt="flyer" onclick="chooseMarketing('flyer', this)">📰 紙本傳單＋折價券</button>
+              <div class="mkt-desc">在店面周邊或人潮處發放傳單，提供基本資訊與優惠內容，讓更多人注意到店家。需負擔印刷與發放成本，但不影響產品內容與服務流程。</div>
+            </div>
+            <div class="mkt-item">
+              <button class="mkt-btn" data-mkt="checkin" onclick="chooseMarketing('checkin', this)">📍 打卡贈送小點心</button>
+              <div class="mkt-desc">鼓勵顧客於社群平台打卡分享，並提供小點心作為回饋。此方式結合宣傳與互動，需準備額外贈品，並占用部分原料與備品。</div>
+            </div>
+            <div class="mkt-item">
+              <button class="mkt-btn" data-mkt="ads" onclick="chooseMarketing('ads', this)">📢 社群廣告投放</button>
+              <div class="mkt-desc">透過社群平台投放付費廣告，將店家資訊推送給特定族群。可提高曝光與能見度，但需持續支付廣告費用，且不直接改變店內服務內容。</div>
+            </div>
+            <div class="mkt-item">
+              <button class="mkt-btn" data-mkt="stamp" onclick="chooseMarketing('stamp', this)">🎟️ 集點卡回饋</button>
+              <div class="mkt-desc">消費後累積點數，達到門檻可兌換商品或折扣，吸引顧客再次來店。需規劃回饋機制，相關回饋成本會隨消費次數增加。</div>
+            </div>
+            <div class="mkt-item">
+              <button class="mkt-btn" data-mkt="community" onclick="chooseMarketing('community', this)">🤝 社區合作曝光</button>
+              <div class="mkt-desc">與附近商家、學校或社區活動合作進行宣傳，提高在地曝光度。需要協調與合作成本，但能建立店家在社區中的熟悉感與信任感。</div>
+            </div>
+    
+          </div>
+          <div class="mkt-note" id="mkt-note">提示：你可以隨時切換；當天營業會以「目前選定方案」計入需求倍率/成本/耗損/滿意度。</div>
+        </div>
+    </div>
+
+<div id="bank" class="page" style="display:none">
+        <h1>🏦 銀行往來</h1>
         <div class="card">
             <h3>目前債務：<span id="debt-text" class="loss">$0</span></h3>
             <p>日利率：5% (利息於每日營業後結算)</p>
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <button class="btn" style="background:var(--secondary); color:white" onclick="doLoan(1000)">申請貸款 $1,000</button>
                 <button class="btn" style="background:var(--danger); color:white" onclick="doRepay(1000)">償還貸款 $1,000</button>
-            </div>
+        </div>
+        </div>
+
+        <div class="card">
+<h3>銀行存款：<span id="bankdep-text" class="profit">$0</span></h3>
+            <p>日利率：3% (利息於每日營業後結算，直接計入銀行存款)</p>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button class="btn" style="background:var(--info); color:white" onclick="doDeposit(1000)">存入存款 $1,000</button>
+                <button class="btn" style="background:var(--secondary); color:white" onclick="doWithdraw(1000)">提領存款 $1,000</button>
+        </div>
+
+
+</div>
 
         </div>
     </div>
@@ -318,25 +511,32 @@ button.pulse {
             </div>
             <div class="card" style="flex:1">
                 <h3 id="bs-ui-title">資產負債表（第1日）</h3>
-                <table id="bs-table-ui">
+                
+                <div style="display:flex; gap:14px; flex-wrap:nowrap; align-items:flex-start;">
+                  <table id="bs-assets-table" style="flex:1; min-width:350px;">
                     <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
                     <tr><td>現金 (Cash)</td><td id="bs-cash">0</td></tr>
+                    <tr><td>銀行存款 (Bank)</td><td id="bs-bankdep">0</td></tr>
                     <tr><td>存貨 (Inv)</td><td id="bs-inv">0</td></tr>
                     <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>資產總額 (Total Assets)</td><td id="bs-assets-total">0</td></tr>
-                    <tr style="background:#eee"><th>負債與權益 (L+E)</th><th>金額</th></tr>
+                  </table>
+
+                  <table id="bs-le-table" style="flex:1; min-width:350px;">
+                    <tr style="background:#eee"><th>負債與權益 (Liabilities+Capital)</th><th>金額</th></tr>
                     <tr><td>銀行貸款 (Liabilities)</td><td id="bs-debt">0</td></tr>
-                    <tr><td>本期累積盈餘 (Equity)</td><td id="bs-equity">0</td></tr>
-                    <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>負債及權益總額 (Total L+E)</td><td id="bs-le-total">0</td></tr>
-                    
-                </table>
-            </div>
+                    <tr><td>業主資本 (Owner's Capital)</td><td id="bs-ocap">0</td></tr>
+                    <tr><td>本期累積盈餘 (Retained Earnings)</td><td id="bs-re">0</td></tr>
+                    <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>負債及權益總額 (Total L+C)</td><td id="bs-le-total">0</td></tr>
+                  </table>
+                </div>
+</div>
         </div>
 
 
         
 <div class="card">
   <h3>每日趨勢圖</h3>
-  <div style="display:flex; gap:14px; flex-wrap:wrap;">
+  <div style="display:flex; gap:14px; flex-wrap:nowrap; align-items:flex-start;">
     <div style="flex:1; min-width:320px;">
       <div class="muted" style="font-weight:700; margin-bottom:8px;">每日營業額</div>
       <div class="chart-container" style="height:300px;">
@@ -362,12 +562,12 @@ button.pulse {
   <h1>📑 報表查詢</h1>
 
   <div class="card">
-    <h3 id="pl-range-title">指定期間：綜合損益表（第1日~第1日）</h3>
+    <h3 id="pl-range-title">綜合損益表（請指定一段期間）</h3>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <label>第<input id="pl-start" type="number" min="1" step="1" class="input" style="width:40px;"></label><label>日  到  </label>
       <label>第<input id="pl-end" type="number" min="1" step="1" class="input" style="width:40px;"></label><label>日</label>
       <button class="btn" style="background:var(--info); color:white" onclick="renderPLRange()">顯示綜合損益表</button>
-      <button class="btn btn-ghost no-print" onclick="exportPLRangeCSV()">匯出 CSV</button>
+      <button class="btn btn-ghost no-print" onclick="exportPLRangeCSV()">匯出數據（CSV檔）</button>
 </div>
 
     <table id="pl-range-table" style="margin-top:12px;">
@@ -383,22 +583,34 @@ button.pulse {
   </div>
 
   <div class="card">
-    <h3 id="bs-snap-title">指定日：資產負債表（第1日）</h3>
+    <h3 id="bs-snap-title">資產負債表（第1日）</h3>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <label>日期(第幾天): <input id="bs-day" type="number" min="1" step="1" class="input" style="width:120px;"></label>
       <button class="btn" style="background:var(--bls); color:white" onclick="renderBSSnapshot()">顯示資產負債表</button>
-      <button class="btn btn-ghost no-print" onclick="exportBSCSV()">匯出 CSV</button>
+      <button class="btn btn-ghost no-print" onclick="exportBSCSV()">匯出數據（CSV檔）</button>
 </div>
 
-    <table id="bs-snap-table" style="margin-top:12px;">
-      <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
-      <tr><td>現金 (Cash)</td><td id="rbs-cash">-</td></tr>
-      <tr><td>存貨 (Inv)</td><td id="rbs-inv">-</td></tr>
-      <tr style="background:#eee"><th>負債與權益 (L+E)</th><th>金額</th></tr>
-      <tr><td>銀行貸款 (Liabilities)</td><td id="rbs-debt">-</td></tr>
-      <tr><td>權益 (Equity)</td><td id="rbs-equity">-</td></tr>
-      
-    </table>
+        <div style="display:flex; gap:14px; flex-wrap:nowrap; align-items:flex-start; margin-top:12px;">
+
+      <table style="flex:1; min-width:320px;">
+        <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
+        <tr><td>現金 (Cash)</td><td id="rbs-cash">-</td></tr>
+        <tr><td>銀行存款 (Bank)</td><td id="rbs-bankdep">-</td></tr>
+        <tr><td>存貨 (Inv)</td><td id="rbs-inv">-</td></tr>
+      <tr style="font-weight:bold; border-top:2px solid #333;"><td>資產合計</td><td id="rbs-assets-total">-</td></tr>
+      </table>
+
+      <table style="flex:1; min-width:320px;">
+        <tr style="background:#eee"><th>負債與權益 (Liabilities+Capital)</th><th>金額</th></tr>
+        <tr><td>銀行貸款 (Liabilities)</td><td id="rbs-debt">-</td></tr>
+        <tr><td>業主資本 (Owner's Capital)</td><td id="rbs-ocap">-</td></tr>
+        <tr><td>本期累積盈餘 (Retained Earnings)</td><td id="rbs-re">-</td></tr>
+        <tr style="font-weight:bold; border-top:2px solid #333;">
+          <td>負債＋權益合計</td><td id="rbs-equity">-</td>
+        </tr>
+      </table>
+
+    </div>
 
     <div id="bs-msg" style="margin-top:10px; color:#666;"></div>
   </div>
@@ -409,27 +621,125 @@ button.pulse {
 <script>
     const CONFIG = {
         initEquity: 3000,
-        matCost: { '麵粉': 2, '蛋': 4, '肉片': 10, '吐司': 3 },
+        matCost: { '麵粉': 3, '蛋': 3, '肉片': 8, '吐司': 2 },
         initInv: { '麵粉': 40, '蛋': 40, '肉片': 20, '吐司': 40 },
         menu: {
             '蛋餅': { price: 45, recipe: {'麵粉':1, '蛋':1} },
             '三明治': { price: 65, recipe: {'吐司':2, '蛋':1, '肉片':1} }
         },
-        rent: 200, ship: 50, interest: 0.05
-    };
+        rent: 200, ship: 50, interest: 0.05, depositInterest: 0.03 };
+
+    const INIT_INV_TOTAL_UNITS = Object.values(CONFIG.initInv).reduce((a,b)=>a+Number(b||0), 0);
+
 
     let state = {
-        day: 1, cash: 0, debt: 0, equity: 3000,
+        day: 1, cash: 0, debt: 0,
+        ownerCapital: CONFIG.initEquity, retained: 0,
+        bankDep: 0,
         inventory: {...CONFIG.initInv},
         buyCount: 0, history: [],
-        satisfaction: 100,
-        decision: { factor: 1, waste: 0, cashCost: 0, satPenalty: 0 }
+        satisfaction: 85,
+        decision: { factor: 1, waste: 0, cashCost: 0, satPenalty: 0 },
+        marketing: { planId: null, day: 0, factor: 1, cashPerDay: 0, wasteAdd: 0, satDelta: 0 }
     };
+
+
+    // ===== 店名可自訂（localStorage）=====
+    function applyStoreName(name){
+        const safe = (name || '').trim() || '快樂早餐店';
+        const el = document.getElementById('storeName');
+        if (el) el.innerText = safe;
+        const t = document.title || '';
+        // 保留原本標題格式，但前綴用店名
+        document.title = safe + '｜早餐店模擬器';
+    }
+
+    function initStoreName(){
+        const saved = localStorage.getItem('store_name') || '';
+        applyStoreName(saved);
+        const input = document.getElementById('storeNameInput');
+        if (input){
+            input.value = (saved || '').trim() || '快樂早餐店';
+let isComposing = false;
+
+input.addEventListener('compositionstart', () => {
+    isComposing = true;
+});
+
+input.addEventListener('compositionend', () => {
+    isComposing = false;
+    limitStoreName();
+});
+
+input.addEventListener('input', () => {
+    if (!isComposing) {
+        limitStoreName();
+    }
+});
+
+function limitStoreName() {
+    // 只保留中文
+    const chars = (input.value || '').match(/[\u4E00-\u9FFF]/g) || [];
+    const limited = chars.slice(0, 6).join('');
+    input.value = limited;
+    localStorage.setItem('store_name', limited);
+    applyStoreName(limited);
+}
+}
+    }
 
     let chartRev = null;
     let chartProfit = null;
 
+    // ===== 行銷方案（每日一次）=====
+    const MARKETING_PLANS = {
+      none:      { name: '不行銷',           factor: 1.00, cashPerDay: 0,   wasteAdd: 0.00, satDelta: 0 },
+      flyer:     { name: '紙本傳單＋折價券', factor: 1.25, cashPerDay: 120, wasteAdd: 0.00, satDelta: 0 },
+      checkin:   { name: '打卡贈送小點心',   factor: 1.10, cashPerDay: 150, wasteAdd: 0.03, satDelta: 3 },
+      ads:       { name: '社群廣告投放',     factor: 1.35, cashPerDay: 220, wasteAdd: 0.00, satDelta: 0 },
+      stamp:     { name: '集點卡回饋',       factor: 1.20, cashPerDay: 180, wasteAdd: 0.00, satDelta: 2 },
+      community: { name: '社區合作曝光',     factor: 1.18, cashPerDay: 140, wasteAdd: 0.00, satDelta: 2 },
+    };
+
+    function chooseMarketing(planId, btn) {
+      const plan = MARKETING_PLANS[planId];
+      if (!plan) return;
+
+      // 可隨時更改：當天營業以「目前方案」為準
+      state.marketing.planId = planId;
+      state.marketing.factor = plan.factor;
+      state.marketing.cashPerDay = plan.cashPerDay;
+      state.marketing.wasteAdd = plan.wasteAdd;
+      state.marketing.satDelta = plan.satDelta;
+
+      // UI：變色（不鎖定）
+      document.querySelectorAll('.mkt-btn').forEach(b => {
+        b.classList.remove('selected');
+      });
+      if (btn) btn.classList.add('selected');
+
+      updateMarketingUI();
+      updateGlobalUI();
+    }
+
+    function updateMarketingUI() {
+      const cur = document.getElementById('mkt-current');
+      const planId = state.marketing?.planId || 'none';
+      const plan = MARKETING_PLANS[planId] || MARKETING_PLANS['none'];
+      if (cur) cur.innerText = plan ? plan.name : '—';
+
+      // 按鈕選取狀態（不禁用）
+      document.querySelectorAll('.mkt-btn').forEach(b => {
+        const id = b.getAttribute('data-mkt');
+        const selected = id === planId;
+        b.classList.toggle('selected', selected);
+        b.disabled = false;
+      });
+    }
+
+
     function init() {
+        initStoreName();
         const invV = getInvValue(state.inventory);
         state.cash = CONFIG.initEquity - invV;
         updateGlobalUI();
@@ -609,7 +919,8 @@ button.pulse {
         }
 
         const custBase = 50 * (state.satisfaction / 100);
-        let actualCust = Math.floor(custBase * state.decision.factor * (0.8 + Math.random() * 0.4));
+        const mktFactor = (state.marketing?.factor || 1);
+        let actualCust = Math.floor(custBase * state.decision.factor * mktFactor * (0.8 + Math.random() * 0.4));
         let rev = 0, cogs = 0, lost = 0;
         const prods = Object.keys(CONFIG.menu);
 
@@ -627,23 +938,34 @@ button.pulse {
         state.satisfaction = lost > 0 ? Math.max(0, state.satisfaction - Math.floor(lost/2)) : Math.min(100, state.satisfaction + 2);
 
         let wasteVal = 0;
-        let wasteRate = (Object.values(state.inventory).reduce((a,b)=>a+b, 0) > 100 ? 0.03 : 0) + state.decision.waste;
+        let wasteRate = (Object.values(state.inventory).reduce((a,b)=>a+b, 0) > 100 ? 0.03 : 0) + state.decision.waste + (state.marketing?.wasteAdd || 0);
 // 若總庫存超過100%（超額備貨），耗損率翻倍
 if (Object.values(state.inventory).reduce((a,b)=>a+b, 0) > 100) wasteRate *= 2;
         for(let r in state.inventory) { let l = state.inventory[r] * wasteRate; state.inventory[r] -= l; wasteVal += l * CONFIG.matCost[r]; }
 
-const laborCost = state.decision.cashCost || 0;   // A：現金成本
+const laborCost = (state.decision.cashCost || 0) + (state.marketing?.cashPerDay || 0);   // A：現金成本 + 行銷每日成本
 const intFee = state.debt * CONFIG.interest;
 
 // profit 要把 laborCost 算進去
-const profit = rev - cogs - CONFIG.rent - wasteVal - intFee - laborCost;
+let profit = rev - cogs - CONFIG.rent - wasteVal - intFee - laborCost;
 
 // 現金也要扣掉 laborCost
 state.cash += (rev - CONFIG.rent - intFee - laborCost);
-state.equity += profit;
+state.retained += profit;
+
+// 銀行存款利息：每日結算，直接加在銀行存款（不影響現金），同時計入本日淨損益
+const depInt = state.bankDep * (CONFIG.depositInterest || 0);
+if (depInt > 0) {
+  state.bankDep += depInt;
+  state.retained += depInt;
+  profit += depInt;
+}
+
 
 // B：滿意度代價（在缺貨造成的滿意度變動後，再扣一次）
 state.satisfaction = Math.max(0, state.satisfaction - (state.decision.satPenalty || 0));
+// 行銷：滿意度加成（例如打卡/集點/合作曝光）
+state.satisfaction = state.satisfaction + (state.marketing?.satDelta || 0);
 // 滿意度上限100
 state.satisfaction = Math.min(100, state.satisfaction);
 
@@ -662,14 +984,19 @@ state.history.push({
 
   // === B/S 快照（第 X 天結算後）===
   cashEnd: state.cash,
+  bankDepEnd: state.bankDep,
   invEnd: invEnd,
   debtEnd: state.debt,
-  equityEnd: state.equity
+  ownerCapEnd: state.ownerCapital,
+  retainedEnd: state.retained,
+  equityEnd: getEquityTotal()
 });
 
 
         document.getElementById('daily-log').innerText = `開店第${state.day}天 營運日誌：營收 $${rev.toFixed(0)}，損失訂單 ${lost} 筆。`;
         state.day++;
+        // 新的一天：行銷方案重置（每天重新選一次）
+        state.marketing = { planId: null, day: 0, factor: 1, cashPerDay: 0, wasteAdd: 0, satDelta: 0 };
         state.buyCount = 0;
         generateEvent();
         updateGlobalUI();
@@ -682,7 +1009,7 @@ state.history.push({
         if(state.cash >= total) {
             state.cash -= total;
             state.inventory[r] += 20;
-            state.equity -= (total - baseVal);
+            state.retained -= (total - baseVal);
             state.buyCount++;
             renderInv();
             updateGlobalUI();
@@ -691,6 +1018,46 @@ state.history.push({
     }
 
     // 貸款功能修復：確保數據與 UI 同步
+
+// 銀行存款：以 $1,000 為單位存入/提領
+function doDeposit(amt) {
+    const raw = Number(amt);
+    const depAmt = Math.floor(raw);
+    if (!depAmt || depAmt <= 0) return;
+
+    const unit = 1000;
+    const n = Math.floor(depAmt / unit) * unit;
+    if (n <= 0) return;
+
+    const pay = Math.min(n, Math.floor(state.cash / unit) * unit);
+    if (pay <= 0) return;
+
+    state.cash -= pay;
+    state.bankDep += pay;
+
+    updateGlobalUI();
+    if (document.getElementById('finance').style.display === 'block') renderFinance();
+}
+
+function doWithdraw(amt) {
+    const raw = Number(amt);
+    const wdAmt = Math.floor(raw);
+    if (!wdAmt || wdAmt <= 0) return;
+
+    const unit = 1000;
+    const n = Math.floor(wdAmt / unit) * unit;
+    if (n <= 0) return;
+
+    const take = Math.min(n, Math.floor(state.bankDep / unit) * unit);
+    if (take <= 0) return;
+
+    state.bankDep -= take;
+    state.cash += take;
+
+    updateGlobalUI();
+    if (document.getElementById('finance').style.display === 'block') renderFinance();
+}
+
 function doLoan(amt) {
     const ratio = getDebtRatio();
     if (ratio > 0.8) {
@@ -730,12 +1097,37 @@ function doLoan(amt) {
     }
 
     function updateGlobalUI() {
-        document.getElementById('nav-cash').innerText = `💰 現金: $${Math.floor(state.cash)}`;
+        const navCash = document.getElementById('nav-cash');
+        if (navCash) navCash.innerText = `💰 現金: $${Math.floor(state.cash)}`;
         document.getElementById('day-text').innerText = `${state.day}`;
-        document.getElementById('sat-text').innerText = state.satisfaction;
-        document.getElementById('satisfaction-fill').style.width = state.satisfaction + "%";
+
+        // 滿意度（已移到營運中心儀表板）
+        const satText = document.getElementById('sat-text');
+        if (satText) satText.innerText = state.satisfaction;
+        const satFill = document.getElementById('satisfaction-fill');
+        if (satFill) satFill.style.width = state.satisfaction + "%";
+
         document.getElementById('debt-text').innerText = `$${Math.floor(state.debt)}`;
-    }
+
+        const bd = document.getElementById('bankdep-text');
+        if (bd) bd.innerText = `$${Math.floor(state.bankDep)}`;
+
+        // 原料庫存狀態：請到「原料採購」中進行補充 => 注意庫存原物料可能不足；否則 安全
+        const invStatusEl = document.getElementById('inv-status');
+        if (invStatusEl) {
+          const low = Object.values(state.inventory).some(v => Number(v || 0) < 60);
+          invStatusEl.innerText = low ? '注意庫存原物料可能不足' : '庫存原物料尚且安全';
+          invStatusEl.classList.toggle('inv-warn', low);
+          invStatusEl.classList.toggle('inv-safe', !low);
+        }
+
+        // 行銷方案同步到儀表板 + 左欄按鈕鎖定/解鎖
+        updateMarketingUI();
+
+        const dashCash = document.getElementById('dash-cash');
+        if (dashCash) dashCash.innerText = `$${Math.floor(state.cash)}`;
+}
+
 
 
 function updatePrepMask() {
@@ -774,6 +1166,8 @@ function updatePrepMask() {
 
 
 function showPage(p) {
+        const runBtn = document.getElementById('run-btn');
+        if (runBtn && p !== 'ops') runBtn.style.display = 'none';
         document.querySelectorAll('.page').forEach(x => x.style.display = 'none');
         document.querySelectorAll('nav li').forEach(x => x.className = '');
         document.getElementById(p).style.display = 'block';
@@ -797,9 +1191,11 @@ function showPage(p) {
     }
 
     function getInvValue(inv) { return Object.keys(inv).reduce((sum, r) => sum + inv[r] * CONFIG.matCost[r], 0); }
+function getEquityTotal(){ return (Number(state.ownerCapital)||0) + (Number(state.retained)||0); }
+
 function getTotalAssets() {
     const invV = getInvValue(state.inventory);
-    return state.cash + invV;
+    return state.cash + state.bankDep + invV;
 }
 
 function getDebtRatio() {
@@ -813,13 +1209,13 @@ function getDebtRatio() {
         const last = state.history[state.history.length-1] || {rev:0, cogs:0, rent:0, waste:0, int:0, ni:0};
         const lastDay = last?.day || Math.max(1, state.day - 1);
         const plTitle = document.getElementById('pl-ui-title');
-        if (plTitle) plTitle.innerText = `綜合損益表（第${lastDay}日~第${lastDay}日）`;
+        if (plTitle) plTitle.innerText = `綜合損益表（第${Math.max(1, state.day - 1)}日收支情形）`;
         const bsTitle = document.getElementById('bs-ui-title');
-        if (bsTitle) bsTitle.innerText = `資產負債表（第${Math.max(1, state.day - 1)}日）`;
+        if (bsTitle) bsTitle.innerText = `資產負債表（第${Math.max(1, state.day - 1)}日財務狀況）`;
 
         const invV = getInvValue(state.inventory);
-        const totalA = state.cash + invV;
-        const totalLE = state.debt + state.equity;
+        const totalA = state.cash + state.bankDep + invV;
+        const totalLE = state.debt + getEquityTotal();
 
         document.getElementById('pl-rev').innerText = `$${last.rev.toFixed(0)}`;
         document.getElementById('pl-cogs').innerText = `-$${last.cogs.toFixed(0)}`;
@@ -832,10 +1228,17 @@ function getDebtRatio() {
         niEl.className = last.ni >= 0 ? 'profit' : 'loss';
 
         document.getElementById('bs-cash').innerText = `$${state.cash.toFixed(0)}`;
+        const bdEl = document.getElementById('bs-bankdep');
+        if (bdEl) bdEl.innerText = `$${state.bankDep.toFixed(0)}`;
         document.getElementById('bs-inv').innerText = `$${invV.toFixed(0)}`;
         document.getElementById('bs-assets-total').innerText = `$${totalA.toFixed(0)}`;
         document.getElementById('bs-debt').innerText = `$${state.debt.toFixed(0)}`;
-        document.getElementById('bs-equity').innerText = `$${state.equity.toFixed(0)}`;
+        const oc = Number(state.ownerCapital) || 0;
+        const re = Number(state.retained) || 0;
+        const ocEl = document.getElementById('bs-ocap');
+        if (ocEl) ocEl.innerText = `$${oc.toFixed(0)}`;
+        const reEl = document.getElementById('bs-re');
+        if (reEl) reEl.innerText = `$${re.toFixed(0)}`;
         document.getElementById('bs-le-total').innerText = `$${totalLE.toFixed(0)}`;
 
         
@@ -926,7 +1329,7 @@ function renderPLRange() {
     const start = startRaw;
     const end = endRaw;
 
-    lastPLRangeTitle = `指定期間：綜合損益表（第${start}日~第${end}日）`;
+    lastPLRangeTitle = `綜合損益表（第${start}日~第${end}日）`;
     const t = document.getElementById('pl-range-title');
     if (t) t.innerText = lastPLRangeTitle;
 
@@ -973,7 +1376,7 @@ function renderBSSnapshot() {
 
     const d = dRaw;
 
-    lastBSSnapTitle = `指定日：資產負債表（顯示第${d}日）`;
+    lastBSSnapTitle = `資產負債表（請指定一個日期）`;
     const t = document.getElementById('bs-snap-title');
     if (t) t.innerText = lastBSSnapTitle;
 
@@ -986,23 +1389,63 @@ function renderBSSnapshot() {
     }
 
     const cash = Number(h.cashEnd) || 0;
+    const bankDep = Number(h.bankDepEnd) || 0;
     const inv = Number(h.invEnd) || 0;
     const debt = Number(h.debtEnd) || 0;
-    const equity = Number(h.equityEnd) || 0;
+    const ownerCap = Number(h.ownerCapEnd) || 0;
+    const retained = Number(h.retainedEnd) || 0;
+    const equity = Number(h.equityEnd) || (ownerCap + retained);
 
-    const assets = cash + inv;
+    const assets = cash + bankDep + inv;
     const le = debt + equity;
 
     document.getElementById('rbs-cash').innerText = `$${cash.toFixed(0)}`;
+    const rbd = document.getElementById('rbs-bankdep');
+    if (rbd) rbd.innerText = `$${bankDep.toFixed(0)}`;
     document.getElementById('rbs-inv').innerText = `$${inv.toFixed(0)}`;
-    document.getElementById('rbs-debt').innerText = `$${debt.toFixed(0)}`;
-    document.getElementById('rbs-equity').innerText = `$${equity.toFixed(0)}`;
+
+    
+    // 合計（資產 vs 負債+權益）
+    const assetsTotal = cash + bankDep + inv;
+    const leTotal = debt + (ownerCap + retained);
+
+    const rbsATX = document.getElementById('rbs-assets-total');
+    if (rbsATX) rbsATX.innerText = `$${assetsTotal.toFixed(0)}`;
+    const rbsLETX = document.getElementById('rbs-equity');
+    if (rbsLETX) rbsLETX.innerText = `$${leTotal.toFixed(0)}`;
+
+document.getElementById('rbs-debt').innerText = `$${debt.toFixed(0)}`;
+    const ocEl = document.getElementById('rbs-ocap');
+    if (ocEl) ocEl.innerText = `$${ownerCap.toFixed(0)}`;
+    const reEl = document.getElementById('rbs-re');
+    if (reEl) reEl.innerText = `$${retained.toFixed(0)}`;
+    /* rbs-equity 已改為 顯示 負債+權益合計 */
+
+
+    // === 指定日資產負債表：合計（資產 vs 負債+權益） ===
+    const cashV = Number((document.getElementById('rbs-cash')?.innerText || '0').replace(/[^0-9.-]/g,'')) || 0;
+    const bankV = Number((document.getElementById('rbs-bankdep')?.innerText || '0').replace(/[^0-9.-]/g,'')) || 0;
+    const invV  = Number((document.getElementById('rbs-inv')?.innerText || '0').replace(/[^0-9.-]/g,'')) || 0;
+
+    const debtV = Number((document.getElementById('rbs-debt')?.innerText || '0').replace(/[^0-9.-]/g,'')) || 0;
+    const ocV   = Number((document.getElementById('rbs-ocap')?.innerText || '0').replace(/[^0-9.-]/g,'')) || 0;
+    const reV   = Number((document.getElementById('rbs-re')?.innerText || '0').replace(/[^0-9.-]/g,'')) || 0;
+
+    const bsTotA = cashV + bankV + invV;
+    const bsTotLE = debtV + (ocV + reV);
+
+    const rbsAT = document.getElementById('rbs-assets-total');
+    if (rbsAT) rbsAT.innerText = `$${bsTotA.toFixed(0)}`;
+
+    const rbsLET = document.getElementById('rbs-equity');
+    if (rbsLET) rbsLET.innerText = `$${bsTotLE.toFixed(0)}`;
 }
+
 
     init();
 
-    let lastPLRangeTitle = '指定期間：綜合損益表';
-let lastBSSnapTitle = '指定日：資產負債表';
+    let lastPLRangeTitle = '綜合損益表';
+let lastBSSnapTitle = '資產負債表';
 
 // --- Report utilities (CSV export / print) ---
     function initReports() {
@@ -1015,9 +1458,9 @@ let lastBSSnapTitle = '指定日：資產負債表';
         if (bsDay && (bsDay.value === '' || Number(bsDay.value) < 1)) bsDay.value = maxDay;
         // refresh titles with default values
         const t1 = document.getElementById('pl-range-title');
-        if (t1) t1.innerText = `指定期間：綜合損益表（第${plStart.value}日~第${plEnd.value}日）`;
+        if (t1) t1.innerText = `綜合損益表（請指定一段期間）`;
         const t2 = document.getElementById('bs-snap-title');
-        if (t2) t2.innerText = `指定日：資產負債表（顯示第${bsDay.value}日）`;
+        if (t2) t2.innerText = `資產負債表（請指定一個日期）`;
     }
 
     function downloadCSV(filename, rows) {
@@ -1115,6 +1558,7 @@ let lastBSSnapTitle = '指定日：資產負債表';
             ['指定日資產負債表 (B/S)', `第${day}日`],
             ['類別', '項目', '金額'],
             ['資產', '現金(Cash)', document.getElementById('rbs-cash')?.innerText ?? ''],
+            ['資產', '銀行存款(Bank)', document.getElementById('rbs-bankdep')?.innerText ?? ''],
             ['資產', '存貨(Inv)', document.getElementById('rbs-inv')?.innerText ?? ''],
             ['負債', '銀行貸款(Liabilities)', document.getElementById('rbs-debt')?.innerText ?? ''],
             ['權益', '權益(Equity)', document.getElementById('rbs-equity')?.innerText ?? ''],
@@ -1135,7 +1579,7 @@ let lastBSSnapTitle = '指定日：資產負債表';
   const KEY = "ip_notice_accepted";
 
   if (!localStorage.getItem(KEY)) {
-    alert("本遊戲是林宣融製作，在遊玩之前，您是否同意花蓮高商不得職場霸凌？");
+    alert("～～歡迎使用早餐店經營模擬系統～～");
     localStorage.setItem(KEY, "yes");
   }
 })();
