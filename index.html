@@ -176,6 +176,57 @@ button.pulse {
 
 
 
+
+/* ===== 開店前提醒遮罩（每日事件模糊） ===== */
+#daily-event-card{ position: relative; }
+#daily-event-card.masked > :not(.prep-mask){
+  filter: blur(5px);
+}
+.prep-mask{
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.35);
+  backdrop-filter: blur(6px);
+  z-index: 5;
+}
+.prep-mask.show{ display: flex; }
+
+
+.prep-actions{
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  justify-content: center;
+}
+.prep-ok.secondary{
+  background: var(--info, #3498db);
+}
+
+.prep-ok{
+  margin-top: 12px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.prep-text{
+  font-weight: 800;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: rgba(0,0,0,.82);
+  text-shadow: 0 1px 0 rgba(255,255,255,.6);
+}
+
 </style>
 </head>
 <body>
@@ -189,7 +240,7 @@ button.pulse {
     </div>
     <ul>
         <li onclick="showPage('ops')" id="li-ops" class="active">🏠 營運中心</li>
-        <li onclick="showPage('inv')" id="li-inv">📦 物流採購</li>
+        <li onclick="showPage('inv')" id="li-inv">📦 原料採購</li>
         <li onclick="showPage('bank')" id="li-bank">🏦 銀行貸款</li>
         <li onclick="showPage('finance')" id="li-finance">📊 財務分析</li>
         <li onclick="showPage('reports')" id="li-reports">📑 報表查詢</li>
@@ -200,7 +251,7 @@ button.pulse {
 <main>
     <div id="ops" class="page">
         <h1>今天是開店第<span id="day-text">1</span>天</h1>
-        <div class="card">
+        <div class="card" id="daily-event-card">
             <span class="badge" id="event-badge" style="background:var(--info)">本日事件</span>
             <h3 id="event-title">市場分析中...</h3>
             <p id="event-desc">正在加載今日環境數據...</p>
@@ -212,13 +263,23 @@ button.pulse {
                     <strong>保守作法</strong><br><small id="desc-b">依照既有節奏與流程，降低風險與波動</small>
                 </div>
             </div>
-        </div>
+        
+            <div class="prep-mask" id="prep-mask">
+                <div class="prep-text">你準備好開店了嗎？記得先採購喔！</div>
+                
+                <div class="prep-actions">
+                  <button id="prep-buy" class="prep-ok secondary">前往採購</button>
+                  <button id="prep-ok" class="prep-ok">直接營業</button>
+                </div>
+    
+            </div>
+</div>
         <button class="btn" id="run-btn" style="background:var(--primary); color:white; width:100%; height:50px; font-size:1.2rem; display:none;" id="run-btn" onclick="runDay()">開始營業</button>
         <div id="daily-log" style="margin-top:15px; color:#666;"></div>
     </div>
 
     <div id="inv" class="page" style="display:none">
-        <h1>📦 物流採購 (今日已訂購 <span id="buy-count">0</span> 次)</h1>
+        <h1>📦 原料採購 (今日已訂購 <span id="buy-count">0</span> 次)</h1>
         <div class="card">
             <table id="inv-table-ui">
                 <thead><tr><th>物料名稱</th><th>庫存數量</th><th>單位基礎成本</th><th>當前訂購價 (含運)</th><th>操作</th></tr></thead>
@@ -260,13 +321,13 @@ button.pulse {
                 <table id="bs-table-ui">
                     <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
                     <tr><td>現金 (Cash)</td><td id="bs-cash">0</td></tr>
-                    <tr><td>存貨價值 (Inv)</td><td id="bs-inv">0</td></tr>
+                    <tr><td>存貨 (Inv)</td><td id="bs-inv">0</td></tr>
                     <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>資產總額 (Total Assets)</td><td id="bs-assets-total">0</td></tr>
                     <tr style="background:#eee"><th>負債與權益 (L+E)</th><th>金額</th></tr>
                     <tr><td>銀行貸款 (Liabilities)</td><td id="bs-debt">0</td></tr>
                     <tr><td>本期累積盈餘 (Equity)</td><td id="bs-equity">0</td></tr>
                     <tr style="background:#f9f9f9; font-weight:bold; border-top:2px solid #333;"><td>負債及權益總額 (Total L+E)</td><td id="bs-le-total">0</td></tr>
-                    <tr style="font-weight:bold; border-top:2px solid #333;"><td>平衡檢查差額</td><td id="bs-check">0</td></tr>
+                    
                 </table>
             </div>
         </div>
@@ -332,11 +393,11 @@ button.pulse {
     <table id="bs-snap-table" style="margin-top:12px;">
       <tr style="background:#eee"><th>資產 (Assets)</th><th>金額</th></tr>
       <tr><td>現金 (Cash)</td><td id="rbs-cash">-</td></tr>
-      <tr><td>存貨價值 (Inv)</td><td id="rbs-inv">-</td></tr>
+      <tr><td>存貨 (Inv)</td><td id="rbs-inv">-</td></tr>
       <tr style="background:#eee"><th>負債與權益 (L+E)</th><th>金額</th></tr>
       <tr><td>銀行貸款 (Liabilities)</td><td id="rbs-debt">-</td></tr>
       <tr><td>權益 (Equity)</td><td id="rbs-equity">-</td></tr>
-      <tr style="font-weight:bold; border-top:2px solid #333;"><td>平衡檢查差額</td><td id="rbs-check">-</td></tr>
+      
     </table>
 
     <div id="bs-msg" style="margin-top:10px; color:#666;"></div>
@@ -348,7 +409,7 @@ button.pulse {
 <script>
     const CONFIG = {
         initEquity: 3000,
-        matCost: { '麵粉': 3, '蛋': 5, '肉片': 12, '吐司': 4 },
+        matCost: { '麵粉': 2, '蛋': 4, '肉片': 10, '吐司': 3 },
         initInv: { '麵粉': 40, '蛋': 40, '肉片': 20, '吐司': 40 },
         menu: {
             '蛋餅': { price: 45, recipe: {'麵粉':1, '蛋':1} },
@@ -372,7 +433,9 @@ button.pulse {
         const invV = getInvValue(state.inventory);
         state.cash = CONFIG.initEquity - invV;
         updateGlobalUI();
+        updatePrepMask();
         generateEvent();
+        updatePrepMask();
     }
 
     function generateEvent() {
@@ -381,25 +444,125 @@ button.pulse {
   // B: sat（滿意度立即代價；可為負=人氣上升）
   // C: w（額外損耗率加成）
 
-  { t: '上班族團購訂單', d: '上班族團購詢問：附近公司想一次訂大量早餐，並希望準時到貨。', aDesc: '接受團購訂單並加開製作節奏；需安排分工、出餐動線與交付時間，避免現場排隊失控。', bDesc: '婉拒團購或僅接受少量預訂；優先照顧現場客流，維持品質與出餐穩定，降低人力與備料壓力。', f: 1.5, w: 0.02, cashCost: 120, sat: 3 },
+  { t: '上班族團購訂單', d: '上班族團購詢問：附近公司想一次訂大量早餐，並希望準時到貨。', aDesc: '接受團購訂單並加開製作節奏；需安排分工、出餐動線與交付時間，避免現場排隊失控。', bDesc: '婉拒團購或僅接受少量預訂；優先照顧現場客流，維持品質與出餐穩定，降低人力與備料壓力。', f: 2, w: 0.02, cashCost: 120, sat: 2 },
   { t: '美食部落客開箱', d: '社群與在地美食部落客突然想跟你合作，做一次美食早餐開箱提升曝光，來客量可能在短時間暴增。', aDesc: '主動加派人手、調整菜單與出餐流程（例如暫停耗時品項、設置快速取餐區），把握熱度。', bDesc: '維持原流程、控制接單速度；以穩定品質為優先，避免因忙亂導致抱怨與負評擴散。', f: 2.5, w: 0.10, cashCost: 300, sat: 5 },
 
   // === 新增每日事件 ===
-  { t: '學生長時間佔位', d: '一群學生長時間佔用座位、聊天讀書，影響翻桌率與其他顧客體驗。', aDesc: '以柔性方式引導（例如提醒用餐時段、提供加點續坐方案），維持氣氛與口碑，但座位將被占用。', bDesc: '明確規範用餐時間並禮貌勸導；可改善座位占用情形，但需注意溝通方式，避免引顧客發衝突與負面觀感。', f: 0.6, w: 0.00, cashCost: 0, sat: -1, fB: 1.2, wB: 0.00, cashCostB: 40, satB: 15 },
-  { t: '道路施工封路', d: '門口道路施工封路，出入不便、客流可能受影響。', aDesc: '照常營業並調整動線（招牌指引、外帶窗口、提前備料）；努力維持曝光與服務，但因人潮銳減營運壓力將會上升。', bDesc: '暫停營業或縮短時段；保全人力與食材風險，等待施工結束再恢復正常，但是暫時店休將會影響人氣。', f: 0.5, w: 0.05, cashCost: 0, sat: -1, fB: 0.0, wB: 0.07, cashCostB: 0, satB: 8 },
-  { t: '熟客介紹朋友', d: '熟客帶朋友來第一次消費，現場氣氛友善，是建立口碑的好時機。', aDesc: '更主動招待與介紹（例如推薦招牌、提供小驚喜），並提供打折；加深印象、提高回訪機率。', bDesc: '維持正常服務水準；確保出餐與品質一致，避免為了招待特定客人而影響其他用餐者。', f: 0.8, w: 0.00, cashCost: 0, sat: -5, fB: 1.0, wB: 0.00, cashCostB: 0, satB: 7 },
+  { t: '學生長時間佔位', d: '一群學生長時間佔用座位、聊天讀書，影響翻桌率與其他顧客體驗。', aDesc: '以柔性方式引導（例如提醒用餐時段、提供加點續坐方案），維持氣氛與口碑，但座位將被占用。', bDesc: '明確規範用餐時間並禮貌勸導；可改善座位占用情形，但需注意溝通方式，避免引顧客發衝突與負面觀感。', f: 0.6, w: 0.00, cashCost: 0, sat: 1, fB: 1.6, wB: 0.00, cashCostB: 40, satB: 5 },
+  { t: '道路施工封路', d: '門口道路施工封路，出入不便、客流可能受影響。', aDesc: '照常營業並調整動線（招牌指引、外帶窗口、提前備料）；努力維持曝光與服務，但因人潮銳減營運壓力將會上升。', bDesc: '暫停營業或縮短時段；保全人力與食材風險，等待施工結束再恢復正常，但是暫時店休將會影響人氣。', f: 0.5, w: 0.05, cashCost: 0, sat: -4, fB: 0.0, wB: 0.07, cashCostB: 0, satB: 4 },
+  { t: '熟客介紹朋友', d: '熟客帶朋友來第一次消費，現場氣氛友善，是建立口碑的好時機。', aDesc: '更主動招待與介紹（例如推薦招牌、提供小驚喜），並提供打折；加深印象、提高回訪機率。', bDesc: '維持正常服務水準；確保出餐與品質一致，避免為了招待特定客人而影響其他用餐者。', f: 0.8, w: 0.00, cashCost: 0, sat: -5, fB: 1.0, wB: 0.00, cashCostB: 0, satB: 3 },
+  {   t: '下雨天',   d: '天候轉差，行人變少、外送與現場動線也更複雜。',   aDesc: '仍然照平常日準備餐點，維持服務體驗。',   bDesc: '降低投入、保守控量（例如縮短備料或提前收攤規劃），以降低風險與耗損。',   f: 0.7,   w: 0.2,   cashCost: 520,   sat: -7,  satDecline: 2},
+
+  // === 可直接貼進 events = [ ... ] 的 7 個新事件 ===
 
   { 
-  t: '下雨天', 
-  d: '天候轉差，行人變少、外送與現場動線也更複雜。', 
-  aDesc: '仍然照平常日準備餐點，維持服務體驗。', 
-  bDesc: '降低投入、保守控量（例如縮短備料或提前收攤規劃），以降低風險與耗損。', 
-  f: 0.8, 
-  w: 0.12, 
-  cashCost: 320, 
-  sat: 0,
-  satDecline: -2
-}
+    t: '常客要求客製化餐點', 
+    d: '熟客提出客製需求（少醬/加料/不要某配料），希望你能「照他的習慣」做一份。', 
+    aDesc: '接受客製化並記錄偏好（貼小紙條或備註），提升關係溫度與口碑，但出餐節奏會變慢、失誤風險上升。', 
+    bDesc: '婉拒客製化、維持標準流程；出餐更一致、更有效率，但熟客可能覺得不被重視，情感連結下降。', 
+    f: 0.9, 
+    w: 0.03, 
+    cashCost: 100, 
+    sat: -8,
+    fB: 1.35, 
+    wB: 0.00, 
+    cashCostB: 0, 
+    satB: 3
+  },
+
+  { 
+    t: '老顧客要求賒帳', 
+    d: '老顧客說今天忘了帶錢／手機沒電，想先賒帳下次再補。', 
+    aDesc: '同意賒帳並建立簡單紀錄（例如小本本登記），人情味提升、關係更穩，但現金回收有不確定性。', 
+    bDesc: '婉拒賒帳、堅持現金/轉帳再交易；帳務與現金流安全，但顧客可能覺得你不近人情而降低來店。', 
+    f: 1.30, 
+    w: 0.00, 
+    cashCost: 50, 
+    sat: -8,
+    fB: 0.95, 
+    wB: 0.00, 
+    cashCostB: 0, 
+    satB: 4
+  },
+
+  { 
+    t: '客人投訴出餐太慢', 
+    d: '尖峰時段顧客抱怨等待太久，情緒上來並表示要留下負評。', 
+    aDesc: '先致歉並提供補償（如小折扣/加飲料/下次優惠），安撫情緒、降低負評擴散，但會增加成本且可能形成先例。', 
+    bDesc: '解釋原因並優先加速出餐、不提供補償；維持制度一致與成本控管，但顧客可能不買單而扣滿意度。', 
+    f: 1.19, 
+    w: 0.01, 
+    cashCost: 100, 
+    sat: -3,
+    fB: 1.08, 
+    wB: 0.00, 
+    cashCostB: 0, 
+    satB: 10
+  },
+
+  { 
+    t: '學校辦活動人潮遽增', 
+    d: '學校臨時辦活動，早上人潮暴增，外帶與現場排隊同時拉長。', 
+    aDesc: '全力接單並加派人手、調整動線（暫停耗時品項/設快速取餐區）；營收機會很大，但忙亂會拉高失誤與抱怨風險。', 
+    bDesc: '限制接單量、保守控節奏（例如只接外帶或限量招牌）；成長較保守但品質更穩，較能守住顧客體驗。', 
+    f: 1.85, 
+    w: 0.07, 
+    cashCost: 160, 
+    sat: 2,
+    fB: 1.15, 
+    wB: 0.02, 
+    cashCostB: 40, 
+    satB: -5
+  },
+
+  { 
+    t: '老闆身體狀況不佳', 
+    d: '老闆狀態不好（頭暈/感冒/睡眠不足），精神與反應都變慢，容易手忙腳亂。', 
+    aDesc: '硬撐照常營業、把流程跑完；短期不影響營業連續性，但失誤率上升、品質不穩容易被客人感受到。', 
+    bDesc: '降低營業強度（縮短品項/提早收攤/放慢接單）；營收可能下降，但品質更可控、也能避免狀態惡化。', 
+    f: 1.05, 
+    w: 0.04, 
+    cashCost: 50, 
+    sat: 5,
+    fB: 0.85, 
+    wB: 0.2, 
+    cashCostB: 150, 
+    satB: -3
+  },
+
+  { 
+    t: '食安稽查臨檢', 
+    d: '稽查人員臨時到店檢查食材保存、環境清潔、與作業流程紀錄。', 
+    aDesc: '全力配合並立刻補強SOP（標示日期、整理台面、主動說明流程）；短期會打亂節奏但可建立安心形象。', 
+    bDesc: '短暫歇業，低調快速應對、希望盡快恢復營業；干擾較小但若觀感不佳，可能引發顧客不安與後續風險。', 
+    f: 0.90, 
+    w: 0.01, 
+    cashCost: 60, 
+    sat: -2,
+    fB: 0.80, 
+    wB: 0.10, 
+    cashCostB: 50, 
+    satB: 4
+  },
+
+  { 
+    t: '食物中毒爭議', 
+    d: '網路出現疑似「吃了你家早餐不舒服」的貼文，事情尚未釐清，但風向開始擴散。', 
+    aDesc: '先下架疑似品項並公開致歉、主動提出關懷與配合調查；短期營收受影響且需付出處理成本，但可爭取信任。', 
+    bDesc: '等待調查結果再統一回應，維持營業不輕易承擔責任；短期影響較小，但輿論可能解讀為冷處理而扣滿意度。', 
+    f: 0.75, 
+    w: 0.02, 
+    cashCost: 120, 
+    sat: -6,
+    fB: 0.95, 
+    wB: 0.00, 
+    cashCostB: 0, 
+    satB: 5
+  },
+
+
+
+
 
 ];
 
@@ -410,6 +573,7 @@ button.pulse {
         document.getElementById('desc-b').innerText = e.bDesc ?? '採取保守策略，維持既有節奏，避免額外負擔與風險';
         state.pendingEvent = e;
         document.getElementById('run-btn').style.display = 'none';
+        updatePrepMask();
     }
 
     function handleDecision(accept, target) {
@@ -464,6 +628,8 @@ button.pulse {
 
         let wasteVal = 0;
         let wasteRate = (Object.values(state.inventory).reduce((a,b)=>a+b, 0) > 100 ? 0.03 : 0) + state.decision.waste;
+// 若總庫存超過100%（超額備貨），耗損率翻倍
+if (Object.values(state.inventory).reduce((a,b)=>a+b, 0) > 100) wasteRate *= 2;
         for(let r in state.inventory) { let l = state.inventory[r] * wasteRate; state.inventory[r] -= l; wasteVal += l * CONFIG.matCost[r]; }
 
 const laborCost = state.decision.cashCost || 0;   // A：現金成本
@@ -478,6 +644,8 @@ state.equity += profit;
 
 // B：滿意度代價（在缺貨造成的滿意度變動後，再扣一次）
 state.satisfaction = Math.max(0, state.satisfaction - (state.decision.satPenalty || 0));
+// 滿意度上限100
+state.satisfaction = Math.min(100, state.satisfaction);
 
 const invEnd = getInvValue(state.inventory);
 
@@ -518,6 +686,7 @@ state.history.push({
             state.buyCount++;
             renderInv();
             updateGlobalUI();
+            updatePrepMask();
         }
     }
 
@@ -568,11 +737,48 @@ function doLoan(amt) {
         document.getElementById('debt-text').innerText = `$${Math.floor(state.debt)}`;
     }
 
+
+function updatePrepMask() {
+    const mask = document.getElementById('prep-mask');
+    const card = document.getElementById('daily-event-card');
+    if (!mask || !card) return;
+
+    const needMask = !sessionStorage.getItem('prep_ack');
+    if (needMask) {
+        mask.classList.add('show');
+        card.classList.add('masked');
+    } else {
+        mask.classList.remove('show');
+        card.classList.remove('masked');
+    }
+
+    const okBtn = document.getElementById('prep-ok');
+    const buyBtn = document.getElementById('prep-buy');
+
+    if (okBtn) {
+      okBtn.onclick = () => {
+        sessionStorage.setItem('prep_ack', '1');
+        mask.classList.remove('show');
+        card.classList.remove('masked');
+      };
+    }
+
+    if (buyBtn) {
+      buyBtn.onclick = () => {
+        // 切換到採購頁（不解除遮罩，讓玩家回來仍會看到提醒）
+        showPage('inv');
+      };
+    }
+
+}
+
+
 function showPage(p) {
         document.querySelectorAll('.page').forEach(x => x.style.display = 'none');
         document.querySelectorAll('nav li').forEach(x => x.className = '');
         document.getElementById(p).style.display = 'block';
         document.getElementById('li-'+p).className = 'active';
+        if(p === 'ops') updatePrepMask();
         if(p === 'inv') renderInv();
         if(p === 'finance') setTimeout(renderFinance, 100);
         if(p === 'reports') initReports();
@@ -631,7 +837,6 @@ function getDebtRatio() {
         document.getElementById('bs-debt').innerText = `$${state.debt.toFixed(0)}`;
         document.getElementById('bs-equity').innerText = `$${state.equity.toFixed(0)}`;
         document.getElementById('bs-le-total').innerText = `$${totalLE.toFixed(0)}`;
-        document.getElementById('bs-check').innerText = `$${(totalA - totalLE).toFixed(2)}`;
 
         
         const labels = state.history.map(h => `第${h.day}日`);
@@ -655,11 +860,20 @@ function getDebtRatio() {
 
         if (ctxProfit) {
             if (chartProfit) chartProfit.destroy();
+
+            const PROFIT_YELLOW = 'rgba(241, 196, 15, 0.85)'; // 淨利
+            const LOSS_RED = 'rgba(231, 76, 60, 0.85)';       // 虧損
+
             chartProfit = new Chart(ctxProfit, {
                 type: 'bar',
                 data: {
                     labels,
-                    datasets: [{ label: '本日淨利', data: profitData, backgroundColor: profitData.map(v => v >= 0 ? 'rgba(241, 196, 15, 0.85)' : 'rgba(231, 76, 60, 0.85)') }]
+                    datasets: [{
+                        label: '本日淨利',
+                        data: profitData,
+                        // 固定規則：虧損紅色，非虧損黃色
+                        backgroundColor: profitData.map(v => (v < 0 ? LOSS_RED : PROFIT_YELLOW))
+                    }]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
             });
@@ -783,7 +997,6 @@ function renderBSSnapshot() {
     document.getElementById('rbs-inv').innerText = `$${inv.toFixed(0)}`;
     document.getElementById('rbs-debt').innerText = `$${debt.toFixed(0)}`;
     document.getElementById('rbs-equity').innerText = `$${equity.toFixed(0)}`;
-    document.getElementById('rbs-check').innerText = `$${(assets - le).toFixed(2)}`;
 }
 
     init();
@@ -902,10 +1115,9 @@ let lastBSSnapTitle = '指定日：資產負債表';
             ['指定日資產負債表 (B/S)', `第${day}日`],
             ['類別', '項目', '金額'],
             ['資產', '現金(Cash)', document.getElementById('rbs-cash')?.innerText ?? ''],
-            ['資產', '存貨價值(Inv)', document.getElementById('rbs-inv')?.innerText ?? ''],
+            ['資產', '存貨(Inv)', document.getElementById('rbs-inv')?.innerText ?? ''],
             ['負債', '銀行貸款(Liabilities)', document.getElementById('rbs-debt')?.innerText ?? ''],
             ['權益', '權益(Equity)', document.getElementById('rbs-equity')?.innerText ?? ''],
-            ['校驗', '平衡檢查差額', document.getElementById('rbs-check')?.innerText ?? ''],
         ];
         downloadCSV(`BS_day${day}.csv`, rows);
     }
@@ -927,6 +1139,15 @@ let lastBSSnapTitle = '指定日：資產負債表';
     localStorage.setItem(KEY, "yes");
   }
 })();
+</script>
+
+<script>
+// 重新整理/關閉頁面提示（中斷遊戲確認）
+window.addEventListener('beforeunload', function (e) {
+  e.preventDefault();
+  e.returnValue = "這將會中斷遊戲，您確定嗎？";
+  return "這將會中斷遊戲，您確定嗎？";
+});
 </script>
 
 </body>
