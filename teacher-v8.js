@@ -3,6 +3,8 @@
   'use strict';
   const Engine = window.RISK_GAME;
   const processing = new Set();
+  const renewalProcessing = new Set();
+  let activeRenewal = null, renewalClosing = false;
   let lastHazardScan = 0;
   let lastRouteSync = 0;
   let practiceNumber = 0;
@@ -24,6 +26,15 @@
     '<small>學生自主選路；只有事故當事人停車。指定演練不計事故、不扣虛擬金；全班題自動出現；公布答案與繼續行車由老師決定。</small>';
   document.querySelector('.hostControlBar').after(controls);
   document.querySelector('.finalBtns').before(Object.assign(document.createElement('div'), { id: 'financialReport', className: 'v8Report' }));
+  const renewalOverlay = document.createElement('div');
+  renewalOverlay.id = 'policyRenewalOverlay';
+  renewalOverlay.className = 'policyRenewalOverlay hidden';
+  renewalOverlay.setAttribute('role', 'dialog');
+  renewalOverlay.setAttribute('aria-modal', 'true');
+  renewalOverlay.setAttribute('aria-labelledby', 'policyRenewalTitle');
+  renewalOverlay.innerHTML = '<div class="policyRenewalBox"><h2 id="policyRenewalTitle">🛡️ 保險到期，請重新選擇</h2><p id="policyRenewalTerms"></p><strong id="policyRenewalCount"></strong><div id="policyRenewalPlayers"></div><p>每完成5題，全班進入新保期；跳過作答也不會延長舊保單。續保期間暫停行車與局時計時。</p><button id="finishRenewalBtn" class="green">繼續行車（未回覆者視為不投保）</button><p id="policyRenewalError" role="alert"></p></div>';
+  document.body.appendChild(renewalOverlay);
+
 
   // Preserve a meaningful difference between a longer main road, a short alley,
   // and a slower route that avoids the busy school crossing where possible.
@@ -104,6 +115,7 @@
     actor.status = 'incident';
     const incident = Engine.createIncident(`incident_${Date.now()}_${++practiceNumber}`, kind, player, options);
     incident.practice = !!practice;
+    incident.coveragePlan = Engine.planFor(actor.lockedPlan || 'basic').id;
     incident.insuranceInspection = { checked: false };
     if (practice) incident.title = '🧰 現場處置演練（不計事故、不扣款）';
     incident.startedAt = Date.now();
@@ -144,8 +156,9 @@
         if (!incident || request.incidentId !== incident.id || player.status !== 'incident' || incident.stage === 'settled' || request.id === incident.lastActionId) {
           return { ...player, actionRequest: null };
         }
+        const coveragePlan = Engine.planFor(incident.coveragePlan || actor.lockedPlan || 'basic').id;
         let answer = request.action === 'settle'
-          ? Engine.settleAuto(incident, actor.lockedPlan || 'basic')
+          ? Engine.settleAuto(incident, coveragePlan)
           : Engine.act(incident, request.action);
         let updated = { ...(answer.incident || incident) };
         let wallet = player.wallet || Engine.newWallet(actor.lockedPlan || 'basic', actor.lockedRole);
@@ -155,7 +168,7 @@
         // the check and its one-time fine, so retries cannot charge it again.
         if (answer.ok && !updated.insuranceInspection?.checked &&
             (request.action === 'call' || ['claim', 'settled'].includes(updated.stage))) {
-          const inspection = Engine.inspectionFor(actor.lockedPlan || 'basic', !!incident.practice);
+          const inspection = Engine.inspectionFor(coveragePlan, !!incident.practice);
           updated.insuranceInspection = inspection;
           if (inspection.fine > 0) {
             wallet = { ...wallet,
@@ -167,7 +180,7 @@
           if (request.action === 'call') answer.message = inspection.note;
         }
         if (answer.ok && updated.stage === 'claim') {
-          answer = Engine.settleAuto(updated, actor.lockedPlan || 'basic');
+          answer = Engine.settleAuto(updated, coveragePlan);
           updated = { ...(answer.incident || updated) };
         }
         updated.feedback = answer.message || '';
@@ -222,7 +235,7 @@
     if (!valid()) return;
     await Promise.all(Object.entries(snapshot.val() || {}).map(async ([id, initial]) => {
       if (!initial.ready || !initial.incident || initial.incident.practice || initial.incident.stage === 'settled') return;
-      const lockedPlan = sim[id]?.lockedPlan || Engine.planFor(initial.insurancePlan).id;
+      const lockedPlan = Engine.planFor(initial.incident.coveragePlan || sim[id]?.lockedPlan || initial.insurancePlan).id;
       const lockedRole = sim[id]?.lockedRole || Engine.roleFor(initial.roleId).id;
       await ref.child(`players/${id}`).transaction(player => {
         if (!valid() || !player?.ready || !player.incident || player.incident.practice || player.incident.stage === 'settled') return;
@@ -255,7 +268,18 @@
     ref.child('players').on('value', snapshot => {
       if (ref !== roomRef || generation !== roomWatchGeneration) return;
       const value = snapshot.val() || {};
-      for (const [id, p] of Object.entries(value)) if (p.actionRequest) processAction(id);
+      for (const [id, p] of Object.entries(value)) {
+        if (p.actionRequest) processAction(id);
+        if (p.renewalRequest) processRenewalRequest(id);
+      }
+      renderRenewal();
+    });
+    ref.on('value', snapshot => {
+      if (ref !== roomRef || generation !== roomWatchGeneration) return;
+      const meta = snapshot.val();
+      activeRenewal = running && meta?.status === 'renewal' ? meta.insuranceRenewal || null : null;
+      renderRenewal();
+      if (activeRenewal) for (const [id, player] of Object.entries(meta.players || {})) if (player.renewalRequest) processRenewalRequest(id);
     });
   };
 
@@ -343,7 +367,7 @@
     $('createBtn').disabled = running || starting || roomMutationPending;
     $('resetBtn').disabled = !roomRef || starting || roomMutationPending;
     $('startBtn').disabled = running || starting || roomMutationPending || !list.length || Object.values(players).some(p => !p.ready || p.status !== 'ready');
-    $('mapStatus').textContent = !running && list.some(([, p]) => p.status === 'finished') ? '🏁 本局結束｜查看風險管理帳本' : paused ? '📚 全班答題／講解中｜由老師決定繼續行車' : running ? `自主選路｜任務進行中｜實際事故 ${accidentsThisRound} 起` : '等待老師發車';
+    $('mapStatus').textContent = activeRenewal ? '🛡️ 保險到期｜等待同學重新選擇保障' : !running && list.some(([, p]) => p.status === 'finished') ? '🏁 本局結束｜查看風險管理帳本' : paused ? '📚 全班答題／講解中｜由老師決定繼續行車' : running ? `自主選路｜任務進行中｜實際事故 ${accidentsThisRound} 起` : '等待老師發車';
     $('classCaseBtn').disabled = true;
     $('personalPracticeBtn').disabled = !running || paused || !$('practicePlayer').value || sim[$('practicePlayer').value]?.status !== 'driving';
     const selected = $('practicePlayer').value;
@@ -391,7 +415,9 @@
     const label = $('autoQuizStatus');
     if (!label) return;
     if (!running) { label.textContent = '📚 發車後每25～30秒自動出題'; return; }
-    if (paused && currentQuestion && !currentQuestion.closed) {
+    if (activeRenewal) {
+      label.textContent = '🛡️ 保險到期｜本次保費依剩餘行車時間計算';
+    } else if (paused && currentQuestion && !currentQuestion.closed) {
       label.textContent = currentQuestion.revealed
         ? '📚 老師講解中｜按「繼續行車」才會關閉'
         : '📚 等待學生作答｜老師決定何時公布答案';
@@ -401,7 +427,8 @@
   }
   stopQuestionClock = function() {
     clearQuizTimers(); clearRoundClock(); nextQuestionAt = 0; activeQuizId = ''; quizDelayMs = 0;
-    quizStarting = false; revealing = false; continuing = false; renderQuizClock();
+    quizStarting = false; revealing = false; continuing = false;
+    activeRenewal = null; renewalClosing = false; renewalOverlay.classList.add('hidden'); renderQuizClock();
   };
   startQuestionClock = function() {
     clearQuizTimers(); nextQuestionAt = 0; activeQuizId = ''; quizDelayMs = 0;
@@ -455,14 +482,23 @@
     if (!quizValid(ref, generation) || !paused || continuing || activeQuizId !== questionId || !currentQuestion?.revealed || currentQuestion.closed) return;
     continuing = true; $('continueBtn').disabled = true;
     try {
+      const remainingMs = currentRoundRemaining();
       const result = await ref.transaction(meta => {
         if (!quizValid(ref, generation) || !meta || meta.status !== 'question' || meta.globalQuestion?.id !== questionId || !meta.globalQuestion.revealed || meta.globalQuestion.closed) return;
-        return { ...meta, status: 'running', globalQuestion: { ...meta.globalQuestion, closed: true } };
+        const completedQuestions = Number(meta.completedQuestions || 0) + 1;
+        const renew = completedQuestions % 5 === 0 && remainingMs > 0;
+        return { ...meta, completedQuestions, status: renew ? 'renewal' : 'running',
+          globalQuestion: { ...meta.globalQuestion, closed: true },
+          insuranceRenewal: renew ? { id: `renewal_${generation}_${completedQuestions}`, period: completedQuestions / 5 + 1, completedQuestions, remainingMs } : null };
       });
       if (!result.committed || !quizValid(ref, generation)) return;
-      paused = false; lastTs = performance.now(); startEnvironmentCycle(); startQuestionClock(); resumeRoundClock();
-      announce('🚦 繼續工作賺錢！下題將在行車25～30秒後自動出現。');
-      for (const [id, player] of Object.entries(players)) if (player.actionRequest) processAction(id);
+      const meta = result.snapshot.val();
+      if (meta.status === 'renewal') {
+        activeRenewal = meta.insuranceRenewal;
+        activeQuizId = ''; nextQuestionAt = 0;
+        renderRenewal(); renderQuizClock();
+        announce('🛡️ 已完成5題，保險到期；請同學重新選擇保障並繳費。');
+      } else resumeDrivingAfterPause();
     } catch (error) {
       console.error('恢復行車失敗，請重新按繼續行車', error);
     } finally { continuing = false; if (ref === roomRef && generation === roundSerial) $('continueBtn').disabled = false; }
@@ -470,7 +506,7 @@
   $('classCaseBtn').onclick = () => beginClassQuestion();
   $('revealBtn').onclick = () => revealClassQuestion();
   $('continueBtn').onclick = () => continueClassQuestion();
-  window.ClassQuizV83 = window.ClassQuizV81 = Object.freeze({ trigger: () => beginClassQuestion(),
+  window.ClassQuizV84 = window.ClassQuizV83 = window.ClassQuizV81 = Object.freeze({ trigger: () => beginClassQuestion(),
     get nextDelayMs() { return quizDelayMs; }, get nextQuestionAt() { return nextQuestionAt; },
     get roundRemainingMs() { return currentRoundRemaining(); }, roundDurationMs: ROUND_DURATION_MS });
   const oldRenderQuestion = renderQuestion;
@@ -489,6 +525,84 @@
     }).join('') + '</tbody></table>';
   };
 
+  function renderRenewal() {
+    const visible = !!activeRenewal && running;
+    renewalOverlay.classList.toggle('hidden', !visible);
+    if (!visible) return;
+    const renewal = activeRenewal;
+    const ready = Object.entries(players).filter(([, player]) => player.ready && player.status !== 'finished');
+    const answered = ready.filter(([, player]) => player.renewalReceipt?.renewalId === renewal.id).length;
+    $('policyRenewalCount').textContent = `${answered} / ${ready.length} 人已選擇｜第 ${renewal.period} 保期`;
+    $('policyRenewalTerms').textContent = `本次強制險 ${cash(Engine.premiumQuote('basic', renewal.remainingMs))}、強制＋商業 ${cash(Engine.premiumQuote('complete', renewal.remainingMs))}；不投保 $0。剩餘時間較短時減收。`;
+    $('policyRenewalPlayers').innerHTML = ready.map(([, player]) => {
+      const receipt = player.renewalReceipt;
+      const done = receipt?.renewalId === renewal.id;
+      return `<div class="policyRenewalPlayer"><b>${safeText(player.name || '玩家')}</b><span>${done ? `${safeText(Engine.planFor(receipt.planId).name)} · 本次 ${cash(receipt.fee)}` : player.connected === false ? '連線中斷；未回覆者繼續時視為不投保' : '等待選擇'}</span></div>`;
+    }).join('');
+    $('finishRenewalBtn').textContent = answered === ready.length ? '續保選擇完成，繼續行車' : '繼續行車（未回覆者視為不投保）';
+    $('finishRenewalBtn').disabled = renewalClosing;
+  }
+  function resumeDrivingAfterPause() {
+    paused = false; lastTs = performance.now(); startEnvironmentCycle(); startQuestionClock(); resumeRoundClock();
+    announce('🚦 繼續工作賺錢！下題將在行車25～30秒後自動出現。');
+    for (const [id, player] of Object.entries(players)) if (player.actionRequest) processAction(id);
+  }
+  async function processRenewalRequest(id) {
+    if (renewalProcessing.has(id) || !activeRenewal || renewalClosing || !running || !paused || !sim[id]) return;
+    const ref = roomRef, generation = roundSerial, renewal = activeRenewal, actor = sim[id];
+    const valid = () => quizValid(ref, generation) && paused && activeRenewal?.id === renewal.id && !renewalClosing;
+    renewalProcessing.add(id);
+    try {
+      const result = await ref.child(`players/${id}`).transaction(player => {
+        if (!valid() || !player?.ready || player.status === 'finished' || !player.renewalRequest) return;
+        const request = player.renewalRequest;
+        if (typeof request.id !== 'string' || !request.id || request.id.length > 160 || request.renewalId !== renewal.id || !Object.hasOwn(Engine.PLANS, request.planId))
+          return { ...player, renewalRequest: null, renewalError: '續保選擇無效，請重新選擇。' };
+        if (player.renewalReceipt?.renewalId === renewal.id) return { ...player, renewalRequest: null };
+        const fee = Engine.premiumQuote(request.planId, renewal.remainingMs);
+        const wallet = player.wallet || Engine.newWallet(actor.lockedPlan || 'basic', actor.lockedRole);
+        return { ...player, insurancePlan: request.planId, policyPeriod: renewal.period,
+          wallet: { ...wallet, balance: Number(wallet.balance) - fee, premium: Number(wallet.premium || 0) + fee },
+          renewalReceipt: { renewalId: renewal.id, planId: request.planId, fee },
+          renewalRequest: null, renewalError: null };
+      });
+      const player = result.snapshot?.val();
+      if (result.committed && quizValid(ref, generation) && actor === sim[id] && player?.renewalReceipt?.renewalId === renewal.id)
+        actor.lockedPlan = Engine.planFor(player.renewalReceipt.planId).id;
+    } catch (error) { console.error('續保選擇同步失敗', error); }
+    finally {
+      renewalProcessing.delete(id);
+      if (activeRenewal?.id === renewal.id && players[id]?.renewalRequest && !renewalClosing) setTimeout(() => processRenewalRequest(id), 80);
+    }
+  }
+  async function finishRenewal() {
+    if (!activeRenewal || renewalClosing || !running || !paused) return;
+    const ref = roomRef, generation = roundSerial, renewal = activeRenewal;
+    renewalClosing = true; $('policyRenewalError').textContent = ''; renderRenewal();
+    try {
+      const result = await ref.transaction(meta => {
+        if (!quizValid(ref, generation) || !paused || meta?.status !== 'renewal' || meta.insuranceRenewal?.id !== renewal.id) return;
+        const nextPlayers = { ...(meta.players || {}) };
+        for (const [id, player] of Object.entries(nextPlayers)) {
+          if (!player.ready || player.status === 'finished') continue;
+          const selected = player.renewalReceipt?.renewalId === renewal.id;
+          const receipt = selected ? player.renewalReceipt : { renewalId: renewal.id, planId: 'uninsured', fee: 0, defaulted: true };
+          nextPlayers[id] = { ...player, insurancePlan: Engine.planFor(receipt.planId).id, policyPeriod: renewal.period,
+            renewalReceipt: receipt, renewalRequest: null, renewalError: null };
+        }
+        return { ...meta, players: nextPlayers, insuranceRenewal: null, status: 'running' };
+      });
+      if (!result.committed || !quizValid(ref, generation)) return;
+      for (const [id, player] of Object.entries(result.snapshot.val().players || {}))
+        if (sim[id] && player.renewalReceipt?.renewalId === renewal.id) sim[id].lockedPlan = Engine.planFor(player.renewalReceipt.planId).id;
+      activeRenewal = null; renewalOverlay.classList.add('hidden'); resumeDrivingAfterPause();
+    } catch (error) {
+      $('policyRenewalError').textContent = '尚未恢復行車，請確認連線後重試。'; console.error('續保結束失敗', error);
+    } finally { renewalClosing = false; renderRenewal(); }
+  }
+  $('finishRenewalBtn').onclick = finishRenewal;
+  window.PolicyRenewalV84 = Object.freeze({ get current() { return activeRenewal; }, finish: finishRenewal });
+
   const oldStart = $('startBtn').onclick;
   $('startBtn').onclick = async () => {
     if (running || starting || roomMutationPending) return;
@@ -496,7 +610,16 @@
     await oldStart();
     if (running) {
       clearRoundClock(); roundRemaining = ROUND_DURATION_MS; roundClockRef = roomRef; roundClockGeneration = roundSerial; resumeRoundClock(); renderQuizClock();
-      announce('🚦 本局行車5分鐘！各職業完成工作賺錢，事故依保障扣款；最後看誰的財產最多！');
+      const ref = roomRef, generation = roundSerial;
+      const updates = { completedQuestions: 0, insuranceRenewal: null };
+      for (const id of Object.keys(players)) {
+        updates[`players/${id}/policyPeriod`] = 1;
+        updates[`players/${id}/renewalRequest`] = null;
+        updates[`players/${id}/renewalReceipt`] = null;
+      }
+      await ref.update(updates);
+      if (!quizValid(ref, generation)) return;
+      announce('🚦 本局行車5分鐘！每5題重新選擇保障，續保費依剩餘時間計算。');
     }
   };
 })();

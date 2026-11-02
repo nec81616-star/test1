@@ -15,3 +15,9 @@
 .autoQuizStatus{display:inline-block;border:3px solid #2760a3;border-radius:12px;padding:10px 14px;background:#fff5c9;color:#17375b;font-weight:900}.rank .wealth{font-size:17px;min-width:100px;white-space:nowrap}.v8Report{overflow-x:auto}.v8Report td,.v8Report th{white-space:nowrap}
 
 .roundClockStatus{display:inline-block;border:3px solid #946b12;border-radius:12px;padding:10px 14px;background:#fffaf0;color:#644900;font-weight:900}
+
+.policyRenewalOverlay{position:fixed;inset:0;z-index:160;background:rgba(9,23,48,.84);display:grid;place-items:center;padding:18px;overflow:auto}
+.policyRenewalBox{width:min(800px,96vw);max-height:94vh;overflow:auto;padding:24px;background:#fffdf4;border:5px solid #17375b;border-radius:22px;color:#17375b;box-shadow:0 18px 48px #08193170}
+.policyRenewalBox h2{font-size:30px;margin:0 0 12px}.policyRenewalBox p{font-size:17px;line-height:1.7}.policyRenewalBox>strong{display:block;padding:12px;background:#e6f3ff;border-radius:10px;font-size:22px}
+.policyRenewalPlayer{display:flex;justify-content:space-between;gap:16px;padding:14px 5px;border-bottom:1px solid #d0dceb;font-size:18px}.policyRenewalPlayer span{text-align:right}.policyRenewalBox button{width:100%;margin-top:14px;font-size:19px}.policyRenewalBox [role=alert]{color:#a42222}
+@media(max-width:600px){.policyRenewalBox{padding:16px}.policyRenewalBox h2{font-size:24px}.policyRenewalPlayer{font-size:15px}.policyRenewalBox p{font-size:14px}}

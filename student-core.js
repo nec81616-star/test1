@@ -120,7 +120,7 @@ async function changeLiveSpeed(delta){if(!playerRef||kicked||overspeedStunned||!
 document.querySelectorAll('[data-speed-delta]').forEach(b=>b.onclick=()=>changeLiveSpeed(Number(b.dataset.speedDelta||0)));
 function watchRoom(){
   roomRootRef=db.ref(`rooms/${room}`);
-  roomRootRef.on('value',s=>{let meta=s.val();if(!meta){kickFromRoom('老師已關閉投影畫面，房間已自動關閉');return}if(!hostAlive(meta)){kickFromRoom('老師目前不在線，請等待老師重新建立房間');return}if(meta.status==='waiting'&&wasInGame&&!meta.players?.[uid]){kickFromRoom('老師已重設房間，請重新掃描邀請加入。');return}if(['running','question','finished'].includes(meta.status))wasInGame=true;renderEnvironment(meta.environment||null);let group=Object.entries(meta.players||{}).filter(([,p])=>p.ready).sort((a,b)=>RISK_GAME.getWealth(b[1])-RISK_GAME.getWealth(a[1])||String(a[1].name||'').localeCompare(String(b[1].name||''),'zh-TW'));let rank=group.findIndex(([id])=>id===uid);if($('playerRank'))$('playerRank').textContent=rank<0?'等待發車':`財產第${rank+1}／${group.length}名`;let st=meta.status;StudentV8.setStatus(st);if(st==='running'||st==='question'){$('waitBox').classList.add('hidden');$('setup').classList.add('hidden');$('liveBox').classList.remove('hidden')}if(st==='finished'){$('qModal').classList.add('hidden');$('eventBox').textContent='🏁 本局結束，依目前財產排名！'}});
+  roomRootRef.on('value',s=>{let meta=s.val();if(!meta){kickFromRoom('老師已關閉投影畫面，房間已自動關閉');return}if(!hostAlive(meta)){kickFromRoom('老師目前不在線，請等待老師重新建立房間');return}if(meta.status==='waiting'&&wasInGame&&!meta.players?.[uid]){kickFromRoom('老師已重設房間，請重新掃描邀請加入。');return}if(['running','question','finished'].includes(meta.status))wasInGame=true;renderEnvironment(meta.environment||null);let group=Object.entries(meta.players||{}).filter(([,p])=>p.ready).sort((a,b)=>RISK_GAME.getWealth(b[1])-RISK_GAME.getWealth(a[1])||String(a[1].name||'').localeCompare(String(b[1].name||''),'zh-TW'));let rank=group.findIndex(([id])=>id===uid);if($('playerRank'))$('playerRank').textContent=rank<0?'等待發車':`財產第${rank+1}／${group.length}名`;let st=meta.status;StudentV8.setStatus(st);StudentV8.setRenewal(meta.insuranceRenewal||null);if(st==='renewal'){$('qModal').classList.add('hidden');clearQuestionState()}if(st==='running'||st==='question'||st==='renewal'){$('waitBox').classList.add('hidden');$('setup').classList.add('hidden');$('liveBox').classList.remove('hidden')}if(st==='finished'){$('qModal').classList.add('hidden');$('eventBox').textContent='🏁 本局結束，依目前財產排名！'}});
   playerRef.on('value',s=>{let p=s.val();if(p)renderLive(p)});
   questionRef=db.ref(`rooms/${room}/globalQuestion`);questionRef.on('value',s=>handleGlobalQuestion(s.val()));
   hostWatchTimer=setInterval(async()=>{if(!roomRootRef||kicked)return;try{let s=await roomRootRef.once('value');let meta=s.val();if(!hostAlive(meta))kickFromRoom('老師已離開，房間已關閉')}catch(e){}},5000)
@@ -143,7 +143,7 @@ function renderLive(p){
 let latestGlobalQuestion=null;
 function clearQuestionState(){latestGlobalQuestion=null;if($('questionStatus'))$('questionStatus').textContent=''}
 function handleGlobalQuestion(q){
- if(StudentV8.finished()||!q||q.closed){$('qModal').classList.add('hidden');if(!q)currentQuestionId='';clearQuestionState();return}
+ if(StudentV8.finished()||StudentV8.inRenewal()||!q||q.closed){$('qModal').classList.add('hidden');if(!q)currentQuestionId='';clearQuestionState();return}
  currentQuestionId=q.id;latestGlobalQuestion=q;$('qModal').classList.remove('hidden');
  $('accInfo').textContent=q.accidentSummary||'';$('qPrompt').textContent=q.prompt||'';
  const answer=q.answers&&q.answers[uid];

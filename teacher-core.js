@@ -348,21 +348,21 @@ function playerCrashLine(a,b,meta){
 function npcCrashLine(v,meta){
  const pattern=meta.pattern||'cross';
  if(meta.hitRun){
-  if(pattern==='rear')return `${v.name}玩家行經路口減速時，遭後方NPC汽車追撞，對方隨即逃離，事後仍無法查明事故車輛。`;
-  if(pattern==='leftTurn')return `${v.name}玩家正直行通過路口，與突然轉彎的NPC汽車相撞，對方離開現場後仍無法查明車輛。`;
-  if(pattern==='merge')return `${v.name}玩家經過巷口，遭匯入道路的NPC汽車擦撞；對方駛離，事後查無肇事車輛。`;
-  return `${v.name}玩家穿越路口時遭NPC汽車側向碰撞；對方逃逸後仍無法查明事故車輛。`;
+  if(pattern==='rear')return `${v.name}玩家行經路口減速時，遭後方一部小客車追撞，對方隨即逃離，事後仍無法查明事故車輛。`;
+  if(pattern==='leftTurn')return `${v.name}玩家正直行通過路口，與一部突然轉彎的小客車相撞，對方離開現場後仍無法查明車輛。`;
+  if(pattern==='merge')return `${v.name}玩家經過巷口，遭一部匯入道路的小客車擦撞；對方駛離，事後查無肇事車輛。`;
+  return `${v.name}玩家穿越路口時遭一部小客車側向碰撞；對方逃逸後仍無法查明事故車輛。`;
  }
  if(meta.playerCauses){
-  if(pattern==='rear')return `${v.name}玩家未保持適當距離，追撞前方減速的NPC汽車。`;
-  if(pattern==='leftTurn')return `${v.name}玩家轉彎進入路口時，與一輛直行NPC汽車碰撞。`;
-  if(pattern==='merge')return `${v.name}玩家由巷口駛入主要道路時，與NPC汽車發生擦撞。`;
-  return `${v.name}玩家與NPC汽車分別由不同方向駛入路口，發生側向碰撞。`;
+  if(pattern==='rear')return `${v.name}玩家未保持適當距離，追撞前方一部減速中的小客車。`;
+  if(pattern==='leftTurn')return `${v.name}玩家轉彎進入路口時，與一部直行的小客車碰撞。`;
+  if(pattern==='merge')return `${v.name}玩家由巷口駛入主要道路時，與一部小客車發生擦撞。`;
+  return `${v.name}玩家與一部小客車分別由不同方向駛入路口，發生側向碰撞。`;
  }
- if(pattern==='leftTurn')return `${v.name}玩家沿路直行，一輛轉彎中的NPC汽車與其碰撞。`;
- if(pattern==='merge')return `${v.name}玩家通過巷口，遭匯入主要道路的NPC汽車擦撞。`;
- if(pattern==='cross')return `${v.name}玩家經過路口時，遭不同方向駛入的NPC汽車側撞。`;
- return `${v.name}玩家在路口前減速，遭後方NPC汽車追撞。`;
+ if(pattern==='leftTurn')return `${v.name}玩家沿路直行，一部轉彎中的小客車與其碰撞。`;
+ if(pattern==='merge')return `${v.name}玩家通過巷口，遭一部匯入主要道路的小客車擦撞。`;
+ if(pattern==='cross')return `${v.name}玩家經過路口時，遭一部從不同方向駛入的小客車側撞。`;
+ return `${v.name}玩家在路口前減速，遭後方一部小客車追撞。`;
 }
 function selfCrashLine(v,meta){
  if(meta.pattern==='barrier')return `${v.name}玩家行經路口後未能順利控制車輛，擦撞路旁護欄，形成單一車輛事故。`;
@@ -397,17 +397,17 @@ function fallbackQuestion(caseInfo){
  const seq=questionSerial+1,med=(12+(seq*17)%85)*1000,repair=med+35000;
  const fmt=n=>n.toLocaleString('zh-TW');
  return {id:'dynamic_'+seq,category:'動態理賠計算',scope:caseInfo.kind,
-  prompt:`延伸${caseInfo.kind==='player'?'同學互撞':'NPC交通事故'}案例：假設有資格請求強制險的受害人，合於傷害醫療給付規定的費用為 ${fmt(med)} 元、車損為 ${fmt(repair)} 元，且尚未達醫療給付限額。下列哪一金額可能列入強制險傷害醫療給付？`,
+  prompt:`延伸${caseInfo.kind==='player'?'同學互撞':'與一部小客車的交通事故'}案例：假設有資格請求強制險的受害人，合於傷害醫療給付規定的費用為 ${fmt(med)} 元、車損為 ${fmt(repair)} 元，且尚未達醫療給付限額。下列哪一金額可能列入強制險傷害醫療給付？`,
   options:[`${fmt(med)} 元`,`${fmt(med+repair)} 元`,`${fmt(repair)} 元`,'0元，因為同時有車損'],correctIndex:0,
   explanation:'傷害醫療與車損應分開；題目已假設醫療費合規、被害人資格成立且未達限額。金額是教學示例，須以實際審認為準。',};
 }
 function questionContext(caseInfo){
  const a=caseInfo.victims?.[0]?.name||'事故當事人';
- const b=caseInfo.kind==='player'?(caseInfo.victims?.[1]?.name||'另一位同學'):'NPC汽車';
+ const b=caseInfo.kind==='player'?(caseInfo.victims?.[1]?.name||'另一位同學'):'一部小客車';
  return {A:a,B:b};
 }
 function fillCaseText(value,ctx){return String(value).replaceAll('{{A}}',ctx.A).replaceAll('{{B}}',ctx.B)}
-const QUIZ_HISTORY_KEY='cityInsuranceQuestionHistory_v830';
+const QUIZ_HISTORY_KEY='cityInsuranceQuestionHistory_v840';
 let questionCategoryCounts={},lastQuestionCategory='',timedQuestionSerial=0;
 function pastQuestionHistory(){try{return JSON.parse(localStorage.getItem(QUIZ_HISTORY_KEY)||'[]')}catch(e){return []}}
 function buildQuestion(caseInfo){
@@ -490,7 +490,7 @@ function renderMemberList(){
   $('memberList').innerHTML=arr.length?arr.map((p,i)=>`<div class="memberRow"><div class="memberNo">${i+1}</div><div><b>${safeText(p.name||'未命名')}</b><small>${p.connected===false?'連線中斷':'已加入房間'}</small></div><div class="memberState ${p.ready?'ready':''}">${p.ready?'READY':'準備中'}</div></div>`).join(''):'<div style="padding:24px;text-align:center;font-weight:900;color:#789">目前尚無學生加入</div>';
 }
 function studentInviteUrl(){
-  const invite = new URL(`student.html?v=830&room=${encodeURIComponent(room)}`, window.location.href); if(window.LOCAL_DEMO)invite.searchParams.set('demo','1'); return invite.href;
+  const invite = new URL(`student.html?v=840&room=${encodeURIComponent(room)}`, window.location.href); if(window.LOCAL_DEMO)invite.searchParams.set('demo','1'); return invite.href;
 }
 function showInvite(){
   if(!room) return;
@@ -536,8 +536,8 @@ $('stopBtn').onclick=async()=>{
     const snapshot=await ref.child('players').once('value');
     if(ref!==roomRef||generation!==roundSerial)return;
     players=snapshot.val()||players;
-    const updates={status:'finished',globalQuestion:null,finishedAt:firebase.database.ServerValue.TIMESTAMP};
-    for(const [id,p]of Object.entries(players)){if(!p.ready)continue;updates[`players/${id}/status`]='finished';updates[`players/${id}/actionRequest`]=null;updates[`players/${id}/currentEvent`]='🏁 本局結束'}
+    const updates={status:'finished',globalQuestion:null,insuranceRenewal:null,finishedAt:firebase.database.ServerValue.TIMESTAMP};
+    for(const [id,p]of Object.entries(players)){if(!p.ready)continue;updates[`players/${id}/status`]='finished';updates[`players/${id}/actionRequest`]=null;updates[`players/${id}/renewalRequest`]=null;updates[`players/${id}/currentEvent`]='🏁 本局結束'}
     await ref.update(updates);
     if(ref!==roomRef||generation!==roundSerial)return;
     renderSide();showFinalPodium();$('mapStatus').textContent='🏁 本局結束｜前三名已公布';

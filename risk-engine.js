@@ -6,13 +6,15 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const START_BUDGET = 10000;
+  const ROUND_ACTIVE_MS = 300000;
+  const POLICY_PERIOD_MS = 125000; // Five questions at the minimum 25s interval.
   const UNINSURED_FINE = 3000; // Game currency; not a statutory fine schedule.
   const PLANS = Object.freeze({
-    uninsured: Object.freeze({ id: 'uninsured', name: '不投保（違規）', premium: 0, compulsory: false, thirdPartyLimit: 0, ownLimit: 0, ownMedicalLimit: 0,
+    uninsured: Object.freeze({ id: 'uninsured', name: '不投保（違規）', premium: 0, referencePremium: 0, compulsory: false, thirdPartyLimit: 0, ownLimit: 0, ownMedicalLimit: 0,
       description: '省保費；事故處理時查驗未投保，扣模擬罰款，損失仍需自行負擔。' }),
-    basic: Object.freeze({ id: 'basic', name: '只保強制險', premium: 600, compulsory: true, thirdPartyLimit: 0, ownLimit: 0, ownMedicalLimit: 0,
+    basic: Object.freeze({ id: 'basic', name: '只保強制險', premium: 250, referencePremium: 600, compulsory: true, thirdPartyLimit: 0, ownLimit: 0, ownMedicalLimit: 0,
       description: '提供符合條件的人身保障，不賠車損與財物損失。' }),
-    complete: Object.freeze({ id: 'complete', name: '強制＋商業', premium: 1800, compulsory: true, thirdPartyLimit: 30000, ownLimit: 15000, ownMedicalLimit: 20000,
+    complete: Object.freeze({ id: 'complete', name: '強制＋商業', premium: 750, referencePremium: 1800, compulsory: true, thirdPartyLimit: 30000, ownLimit: 15000, ownMedicalLimit: 20000,
       description: '本教學方案含強制險、第三人財損、自己車損及另列的駕駛人傷害保障。' }),
   });
   // Calibrated against 300s of active driving over all 12 map spawn slots.
@@ -38,10 +40,16 @@
   function planFor(id) { return Object.hasOwn(PLANS, id) ? PLANS[id] : PLANS.basic; }
   function routeFor(id) { return Object.hasOwn(ROUTES, id) ? ROUTES[id] : ROUTES.main; }
   function roleFor(id) { return Object.hasOwn(ROLES, id) ? ROLES[id] : ROLES.office; }
+  function premiumQuote(planId, remainingMs = ROUND_ACTIVE_MS) {
+    const remaining = typeof remainingMs === 'number' && Number.isFinite(remainingMs)
+      ? Math.min(ROUND_ACTIVE_MS, Math.max(0, remainingMs)) : ROUND_ACTIVE_MS;
+    return Math.ceil(planFor(planId).referencePremium * Math.min(POLICY_PERIOD_MS, remaining) / ROUND_ACTIVE_MS);
+  }
   function newWallet(planId, roleId) {
     const plan = planFor(planId);
     const role = roleFor(roleId);
-    return { initialAssets: role.startingWealth, balance: role.startingWealth - plan.premium, premium: plan.premium,
+    const premium = premiumQuote(plan.id);
+    return { initialAssets: role.startingWealth, balance: role.startingWealth - premium, premium,
       totalOutOfPocket: 0, totalFines: 0, missionIncome: 0, insurancePaid: 0 };
   }
   function inspectionFor(planId, practice = false) {
@@ -160,5 +168,5 @@
       ownDamage: plan.ownLimit > 0 ? 'own' : 'self',
     });
   }
-  return Object.freeze({ VERSION: '8.3', START_BUDGET, UNINSURED_FINE, PLANS, ROUTES, ROLES, LOSS_TYPES, ACTIONS, planFor, routeFor, roleFor, getWealth, newWallet, inspectionFor, createIncident, act, settle, settleAuto });
+  return Object.freeze({ VERSION: '8.4', START_BUDGET, ROUND_ACTIVE_MS, POLICY_PERIOD_MS, UNINSURED_FINE, PLANS, ROUTES, ROLES, LOSS_TYPES, ACTIONS, planFor, routeFor, roleFor, premiumQuote, getWealth, newWallet, inspectionFor, createIncident, act, settle, settleAuto });
 });
