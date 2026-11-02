@@ -1,0 +1,13 @@
+.v8Controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 18px;background:#edf5ff;border-block:2px solid #a6bfdf}
+.v8Controls select{font:inherit;max-width:210px;padding:10px;border:2px solid #315ea5;border-radius:10px;background:white;color:#17315f}
+.v8Controls button{font-size:14px;padding:9px 12px;border-width:3px}
+.v8Controls small{flex-basis:100%;color:#49617e;font-weight:800;line-height:1.6}
+.v8Money{display:block;color:#246044;font-size:12px;font-weight:900;margin-top:5px;line-height:1.7}
+.v8Incident{color:#a32f23;background:#fff0e8;border-radius:6px;padding:2px 5px;display:inline-block}
+.v8Report{margin:15px 0;overflow:auto;border:2px solid #7899c8;border-radius:12px;background:#fff}
+.v8Report table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;text-align:right}
+.v8Report th,.v8Report td{padding:10px;border-bottom:1px solid #dbe4ee}
+.v8Report th:first-child,.v8Report td:first-child{text-align:left}
+.v8Report caption{padding:12px;text-align:left;font-weight:900;background:#eaf4ff}
+.car.incident .boom{display:block}.car.incident .sprite{filter:grayscale(.65)}
+@media(max-width:680px){.v8Controls{padding:10px}.v8Controls button{flex:1}.v8Controls select{max-width:100%;width:100%}}
