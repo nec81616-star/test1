@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const rules = require('../risk-engine.js');
 
 function claim(kind = 'collision', vehicleType = 'car') {
-  let incident = rules.createIncident('case-1', kind, { vehicleType });
+  let incident = rules.createIncident('case-1', kind, { vehicleType }, {
+    lossKeys: kind === 'overspeed' ? ['thirdParty','ownDamage'] : ['medical','thirdParty','ownDamage'],
+    amounts: {medical:2000,ownMedical:0,thirdParty:kind === 'overspeed'?1500:3000,ownDamage:vehicleType === 'moto'?1500:3500},
+  });
   for (const action of ['secure', 'call', 'photo', 'documents']) {
     const result = rules.act(incident, action);
     assert.equal(result.ok, true, action);
@@ -187,4 +190,54 @@ test('accident inspection applies a clearly simulated uninsured fine and never c
   const initial = rules.newWallet('uninsured', 'office');
   rules.inspectionFor('uninsured');
   assert.equal(initial.balance, initial.initialAssets, 'pure inspection rules cannot mutate a wallet');
+});
+
+
+test('random incidents can produce every nonempty combination of the four loss types', () => {
+  const keys = ['medical','ownMedical','thirdParty','ownDamage'];
+  const seen = new Set();
+  for (let mask = 1; mask <= 15; mask++) {
+    const incident = rules.createIncident('random-'+mask, 'self', {vehicleType:'car'}, {rng:()=>(mask-.5)/15});
+    const active = keys.filter(key=>incident[key]>0);
+    assert.ok(active.length>=1 && active.length<=4);
+    assert.deepEqual([...incident.lossTypes].sort(), [...active].sort());
+    for (const key of keys) assert.ok(Number.isSafeInteger(incident[key]) && incident[key]>=0);
+    seen.add(active.sort().join(','));
+  }
+  assert.equal(seen.size,15,'all four single losses and their combinations must be reachable');
+  const low = rules.createIncident('low','overspeed',{}, {lossKeys:['medical'],rng:()=>.1});
+  const high = rules.createIncident('high','overspeed',{}, {lossKeys:['medical'],rng:()=>.9});
+  assert.notEqual(low.medical, high.medical,'the same loss category should not always have a fixed amount');
+  assert.equal(low.ownMedical,0);assert.equal(low.thirdParty,0);assert.equal(low.ownDamage,0);
+});
+
+test('single-vehicle driver injury uses the explicit commercial rider, never compulsory cover', () => {
+  let incident = rules.createIncident('driver-only','self',{vehicleType:'car'},
+    {lossKeys:['ownMedical'],amounts:{ownMedical:4000}});
+  for (const action of ['secure','call','photo','documents']) incident = rules.act(incident,action).incident;
+  assert.equal(incident.medical,0);assert.equal(incident.thirdParty,0);assert.equal(incident.ownDamage,0);
+  assert.equal(rules.settleAuto(incident,'uninsured').settlement.outOfPocket,4000);
+  assert.equal(rules.settleAuto(incident,'basic').settlement.outOfPocket,4000);
+  const commercial = rules.settleAuto(incident,'complete');
+  assert.equal(commercial.settlement.outOfPocket,0);
+  assert.equal(commercial.settlement.insurancePaid,4000);
+  assert.equal(commercial.settlement.lines.find(line=>line.key==='ownMedical').source,'driver');
+  assert.equal(rules.settle(incident,'basic',{ownMedical:'compulsory'}).ok,false);
+  incident.ownMedical = rules.planFor('complete').ownMedicalLimit + 2500;
+  assert.equal(rules.settleAuto(incident,'complete').settlement.outOfPocket,2500,'driver rider retains its coverage limit');
+});
+
+test('four-way claims preserve exact financial sums and reject malformed own-injury input', () => {
+  let incident = rules.createIncident('four-way','collision',{},
+    {lossKeys:['medical','ownMedical','thirdParty','ownDamage'],amounts:{medical:2000,ownMedical:4000,thirdParty:3000,ownDamage:3500}});
+  for (const action of ['secure','call','photo','documents']) incident = rules.act(incident,action).incident;
+  for (const [plan,selfPay] of [['uninsured',12500],['basic',10500],['complete',0]]) {
+    const result=rules.settleAuto(incident,plan);assert.equal(result.ok,true);
+    assert.equal(result.settlement.outOfPocket,selfPay);
+    assert.equal(result.settlement.totalLoss,12500);
+    assert.equal(result.settlement.totalLoss,result.settlement.insurancePaid+result.settlement.outOfPocket);
+  }
+  for (const bad of [-1,1.5,Infinity,'4000',null]) {
+    assert.equal(rules.settleAuto({...incident,ownMedical:bad},'complete').ok,false);
+  }
 });

@@ -102,13 +102,18 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.notEqual(differentPaths.main, differentPaths.shortcut);
     console.log('PASS: student route choices change actual pathfinding');
 
+    async function startIncident(playerId, kind = 'collision', practice = false) {
+      return host.evaluate(({playerId,kind,practice}) => beginPersonalIncident(playerId,kind,practice,{
+        lossKeys:['medical','thirdParty','ownDamage'],amounts:{medical:2000,thirdParty:3000,ownDamage:3500},
+      }),{playerId,kind,practice});
+    }
     async function finishScene(page, actions = ['secure', 'call', 'photo', 'documents']) {
       for (const action of actions) {
         await page.locator(`[data-incident-action="${action}"]`).click();
         if (action !== 'documents') await eventually(page, action => document.querySelector(`[data-incident-action="${action}"]`)?.getAttribute('aria-pressed') === 'true', action, `scene ${action}`);
       }
     }
-    await host.evaluate(id => beginPersonalIncident(id, 'collision', false), id);
+    await startIncident(id);
     await student.locator('[data-incident-action="secure"]').waitFor({ state: 'visible' });
     assert.equal(await host.evaluate(() => paused), false);
     assert.equal(await host.evaluate(id => players[id].status, otherId), 'driving');
@@ -131,7 +136,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
 
     // An accident alone does not charge a fine. The valid police call does,
     // using the departure plan even if a client tampers with its displayed plan.
-    await host.evaluate(id => beginPersonalIncident(id,'collision',false),uninsuredId);
+    await startIncident(uninsuredId);
     await uninsured.locator('[data-incident-action="secure"]').waitFor({state:'visible'});
     assert.equal(await host.evaluate(id => players[id].wallet.totalFines,uninsuredId),0);
     await uninsured.locator('[data-incident-action="photo"]').click();
@@ -159,7 +164,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.match(await uninsured.locator('#receiptTotal').innerText(),/11,500/);
     // A rehearsal can demonstrate the same violation without deducting money.
     const rehearsalBefore=uninsuredResult.wallet.balance;
-    await host.evaluate(id=>beginPersonalIncident(id,'collision',true),uninsuredId);
+    await startIncident(uninsuredId,'collision',true);
     await finishScene(uninsured);
     await eventually(host,id=>players[id].incident.stage==='settled',uninsuredId,'uninsured practice');
     assert.equal(await host.evaluate(id=>players[id].wallet.balance,uninsuredId),rehearsalBefore);
@@ -186,6 +191,27 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.equal(await host.evaluate(id => players[id].incidentCount, otherId), 1);
     console.log('PASS: actual overspeed event settles automatically without asking students to classify insurance');
 
+    // Controlled speed must reduce random road risk without eliminating it.
+    await host.evaluate(async target => {
+      currentEnvironment={...currentEnvironment,roadKey:'clear',weatherKey:'sunny'};
+      await roomRef.child('environment').set(currentEnvironment);
+      for(const playerId of Object.keys(players)) await roomRef.child(`players/${playerId}/speed`).set(playerId===target?40:0);
+      const actor=sim[target];actor.arrivalBusy=false;actor.pauseUntil=0;actor.boundaryWait=0;actor.incidentCooldownUntil=0;
+    },otherId);
+    await eventually(host,target=>Object.entries(players).every(([playerId,p])=>p.speed===(playerId===target?40:0)),otherId,'controlled risk setup');
+    const safeRisk=await host.evaluate(target=>RoadRiskV83.probabilityFor(target),otherId);
+    assert.ok(safeRisk>0 && safeRisk<1,'lawful driving retains nonzero road risk');
+    await host.evaluate(()=>{let draws=0;Math.random=()=>++draws<=2?0:.5;RoadRiskV83.scan(Date.now()+16000);Math.random=()=>.99;});
+    await eventually(host,target=>players[target].status==='incident'&&players[target].incident.kind==='self',otherId,'safe-speed random self crash');
+    const randomLoss=await host.evaluate(target=>players[target].incident,otherId);
+    assert.ok(randomLoss.lossTypes.length>0);
+    for(const key of ['medical','ownMedical','thirdParty','ownDamage'])assert.equal(randomLoss[key]>0,randomLoss.lossTypes.includes(key));
+    await finishScene(other);
+    await eventually(host,target=>players[target].incident.stage==='settled',otherId,'safe-speed self-crash settlement');
+    assert.equal(await host.evaluate(target=>players[target].incidentCount,otherId),2);
+    await host.evaluate(async()=>{for(const playerId of Object.keys(players))await roomRef.child(`players/${playerId}/speed`).set(30);});
+    console.log('PASS: safe-speed driving can still encounter a random self crash with a generated loss combination');
+
     const visitBefore = await host.evaluate(id => Number(players[id].visitCount || 0), id);
     const incomeBefore = await host.evaluate(id => players[id].wallet.missionIncome, id);
     const jobIncome = await host.evaluate(id => RISK_GAME.roleFor(players[id].roleId).stationIncome, id);
@@ -204,7 +230,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
       await host.clock.fastForward(Math.max(1, timestamp - now + 10));
       await sleep(80); // let cross-tab storage events and locked transactions finish
     }
-    const firstClock = await host.evaluate(() => ({ now: Date.now(), next: ClassQuizV81.nextQuestionAt, delay: ClassQuizV81.nextDelayMs }));
+    const firstClock = await host.evaluate(() => ({ now: Date.now(), next: ClassQuizV83.nextQuestionAt, delay: ClassQuizV83.nextDelayMs }));
     assert.ok(firstClock.delay >= 25000 && firstClock.delay <= 30000);
     assert.ok(firstClock.next > firstClock.now);
     await advanceTo(firstClock.next - 20);
@@ -212,33 +238,47 @@ async function eventually(page, predicate, argument, label = 'condition') {
     await advanceTo(firstClock.next);
     await student.locator('#qModal').waitFor({ state: 'visible' });
     const firstQuestion = await host.evaluate(() => ({ ...currentQuestion }));
-    assert.equal(firstQuestion.autoMode, true);
+    assert.equal(firstQuestion.teacherControlled, true);
     assert.equal(firstQuestion.practice, true);
-    assert.ok(firstQuestion.answerDeadlineAt > await host.evaluate(() => Date.now()));
-    const wealthBeforeQuiz = await host.evaluate(({ id, otherId }) => [players[id].wallet.balance, players[otherId].wallet.balance], { id, otherId });
-    const roundAtPause = await host.evaluate(() => ClassQuizV81.roundRemainingMs);
+    assert.equal(firstQuestion.answerDeadlineAt,undefined);
+    assert.equal(firstQuestion.resumeAt,undefined);
+    const wealthBeforeQuiz = await host.evaluate(()=>Object.fromEntries(Object.entries(players).map(([key,p])=>[key,p.wallet.balance])));
+    const roundAtPause = await host.evaluate(() => ClassQuizV83.roundRemainingMs);
+    // Slow thinkers must still be able to answer long after the old 12s limit.
+    await advanceTo(await host.evaluate(()=>Date.now()+120000));
+    assert.equal(await host.evaluate(()=>currentQuestion.id),firstQuestion.id);
+    assert.equal(await host.evaluate(()=>currentQuestion.revealed),false);
+    assert.equal(await host.evaluate(()=>paused),true);
+    assert.equal(await host.evaluate(()=>ClassQuizV83.roundRemainingMs),roundAtPause);
+    assert.equal(await student.locator('#qOpts button').first().isDisabled(),false);
+    assert.doesNotMatch(await student.locator('#qModal').innerText(),/倒數|作答剩餘|秒後自動/);
     await student.locator('#qOpts button').nth(firstQuestion.correctIndex).click();
     await other.locator('#qOpts button').nth((firstQuestion.correctIndex + 1) % firstQuestion.options.length).click();
-    await advanceTo(firstQuestion.answerDeadlineAt);
-    await eventually(host, () => currentQuestion?.revealed, null, 'automatic answer reveal');
-    assert.equal(await host.evaluate(() => paused), true);
-    assert.deepEqual(await host.evaluate(({ id, otherId }) => [players[id].wallet.balance, players[otherId].wallet.balance], { id, otherId }), wealthBeforeQuiz, 'quiz correctness never adds property');
-    assert.equal(await host.evaluate(() => ClassQuizV81.roundRemainingMs), roundAtPause, 'answer/explanation pauses the active work clock');
-    const resumeAt = await host.evaluate(() => currentQuestion.resumeAt);
-    await advanceTo(resumeAt);
-    await student.locator('#qModal').waitFor({ state: 'hidden' });
-    await eventually(host, () => !paused && running, null, 'automatic driving resume');
-    const secondAt = await host.evaluate(() => ClassQuizV81.nextQuestionAt);
-    assert.ok(secondAt - await host.evaluate(() => Date.now()) >= 24900);
+    await host.locator('#revealBtn').click();
+    await eventually(host,()=>currentQuestion?.revealed,null,'teacher answer reveal');
+    // Teachers may explain as long as necessary: no automatic close or work time.
+    await advanceTo(await host.evaluate(()=>Date.now()+90000));
+    assert.equal(await host.evaluate(()=>currentQuestion.id),firstQuestion.id);
+    assert.equal(await host.evaluate(()=>currentQuestion.closed),false);
+    assert.equal(await host.evaluate(()=>paused),true);
+    assert.equal(await host.evaluate(()=>ClassQuizV83.roundRemainingMs),roundAtPause);
+    assert.equal(await student.locator('#qModal').isVisible(),true);
+    assert.deepEqual(await host.evaluate(()=>Object.fromEntries(Object.entries(players).map(([key,p])=>[key,p.wallet.balance]))),wealthBeforeQuiz,'quiz correctness never changes property');
+    await host.locator('#continueBtn').click();
+    await student.locator('#qModal').waitFor({state:'hidden'});
+    await eventually(host,()=>!paused&&running,null,'teacher driving resume');
+    const secondAt=await host.evaluate(()=>ClassQuizV83.nextQuestionAt);
+    assert.ok(secondAt-await host.evaluate(()=>Date.now())>=24900);
     await advanceTo(secondAt);
-    await student.locator('#qModal').waitFor({ state: 'visible' });
-    assert.notEqual(await host.evaluate(() => currentQuestion.id), firstQuestion.id);
-    const secondDeadline = await host.evaluate(() => currentQuestion.answerDeadlineAt);
-    await advanceTo(secondDeadline);
-    await eventually(host, () => currentQuestion?.revealed, null, 'unanswered question reveal');
-    await advanceTo(await host.evaluate(() => currentQuestion.resumeAt));
-    await student.locator('#qModal').waitFor({ state: 'hidden' });
-    console.log('PASS: 25–30s automatic quiz, 12s answers, automatic reveal/resume and a second cycle without teacher clicks');
+    await student.locator('#qModal').waitFor({state:'visible'});
+    assert.notEqual(await host.evaluate(()=>currentQuestion.id),firstQuestion.id);
+    await advanceTo(await host.evaluate(()=>Date.now()+40000));
+    assert.equal(await host.evaluate(()=>currentQuestion.revealed),false);
+    await host.locator('#revealBtn').click();
+    await eventually(host,()=>currentQuestion?.revealed,null,'unanswered teacher reveal');
+    await host.locator('#continueBtn').click();
+    await student.locator('#qModal').waitFor({state:'hidden'});
+    console.log('PASS: 25–30s automatic questions allow long answers and explanations, with manual teacher reveal/resume');
 
     await student.setViewportSize({ width: 390, height: 844 });
     assert.ok(await student.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -249,23 +289,24 @@ async function eventually(page, predicate, argument, label = 'condition') {
 
     // Unfinished real accidents must not become a way to win by avoiding the
     // police call or refusing to finish documentation before the round ends.
-    await host.evaluate(id=>beginPersonalIncident(id,'collision',false),uninsuredId);
+    await startIncident(uninsuredId);
     await finishScene(uninsured,['secure','call']);
     assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,uninsuredId),6000);
-    await host.evaluate(id=>beginPersonalIncident(id,'collision',false),pendingId);
+    await startIncident(pendingId);
     assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,pendingId),0);
     const pendingBefore=await host.evaluate(({uninsuredId,pendingId})=>({
       called:players[uninsuredId].wallet.balance,uncalled:players[pendingId].wallet.balance,
     }),{uninsuredId,pendingId});
 
     // Let the actual active-work clock end the round, crossing any scheduled
-    // automatic questions; neither questions nor the result window consume work time.
+    // automatically opened questions; teacher discussion does not consume work time.
     for (let i = 0; i < 40 && await host.evaluate(() => running); i++) {
-      const phase = await host.evaluate(() => ({ paused, now: Date.now(), next: ClassQuizV81.nextQuestionAt,
-        remaining: ClassQuizV81.roundRemainingMs, q: currentQuestion }));
+      const phase = await host.evaluate(() => ({ paused, now: Date.now(), next: ClassQuizV83.nextQuestionAt,
+        remaining: ClassQuizV83.roundRemainingMs, q: currentQuestion }));
       if (phase.paused) {
-        await advanceTo(phase.q.revealed ? phase.q.resumeAt : phase.q.answerDeadlineAt);
-        await eventually(host, () => !running || !paused || currentQuestion?.revealed, null, 'case timer progress');
+        if(!phase.q.revealed){await host.locator('#revealBtn').click();await eventually(host,()=>currentQuestion?.revealed,null,'teacher reveal during round');}
+        await host.locator('#continueBtn').click();
+        await eventually(host,()=>!paused||!running,null,'teacher resume during round');
       } else {
         await advanceTo(Math.min(phase.next || Infinity, phase.now + phase.remaining));
       }
@@ -302,7 +343,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.match(await student.locator('#joinMsg').innerText(), /重設/);
     await host.clock.fastForward(60000);
     assert.equal(await host.evaluate(() => running), false);
-    assert.equal(await host.evaluate(() => ClassQuizV81.nextQuestionAt), 0);
+    assert.equal(await host.evaluate(() => ClassQuizV83.nextQuestionAt), 0);
     assert.deepEqual(errors, []);
     assert.deepEqual(remote, []);
     console.log('PASS: reset returns students to join; no timer resurrection, runtime errors or external requests');

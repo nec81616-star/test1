@@ -104,7 +104,7 @@ function renderTargetRange(){
  let r=drivingScoreRange(currentEnvironment),label=r?`${r.min}～${r.max} km/h`:'發車後公布';
  for(const id of ['waitTarget','liveTarget'])if($(id))$(id).textContent=label;
  if($('speedJudge')){$('speedJudge').textContent=r?(Number(state.speed)>r.max+10?' 💥 危險超速':Number(state.speed)<=r.max?' ✅ 留意路況，穩定行車':' ⚠️ 請減速'):' ';}
- if($('overspeedRule'))$('overspeedRule').textContent=r?`⚠️ 超過 ${r.max+10} km/h：可能撞擊護欄，需處理現場並依保障負擔損失`:'⚠️ 超速撞擊界線將於發車後顯示';
+ if($('overspeedRule'))$('overspeedRule').textContent=r?`⚠️ 超過 ${r.max+10} km/h：事故風險升高，可能造成人損或財損`:'⚠️ 守規速仍需留意突發路況';
 }
 function renderEnvironment(env){
  let prev=currentEnvironment,road=env?.roadName||'尚未公布',weather=env?.weatherName||'尚未公布';
@@ -140,30 +140,23 @@ function renderLive(p){
  if(visitAt&&visitAt!==lastVisitSeen){lastVisitSeen=visitAt;const income=Number(p.lastJobIncome??RISK_GAME.roleFor(p.roleId).stationIncome);showDriveToast('📍 工作完成，收入＋$'+income.toLocaleString('zh-TW'),'success')}
  if(p.lastFeedback){$('resultBox').classList.remove('hidden');$('resultBox').textContent=p.lastFeedback}else $('resultBox').classList.add('hidden')
 }
-let questionCountdownTimer=null,latestGlobalQuestion=null;
-function stopQuestionCountdown(){clearInterval(questionCountdownTimer);questionCountdownTimer=null;latestGlobalQuestion=null;if($('questionCountdown'))$('questionCountdown').textContent=''}
-function updateQuestionCountdown(){
- const q=latestGlobalQuestion;if(!q||q.closed||StudentV8.finished()){stopQuestionCountdown();return}
- const deadline=Number(q.revealed?q.resumeAt:q.answerDeadlineAt);
- const remaining=Number.isFinite(deadline)?Math.max(0,Math.ceil((deadline-Date.now())/1000)):0;
- if($('questionCountdown'))$('questionCountdown').textContent=q.revealed?`解析 ${remaining} 秒後自動繼續行車`:`作答剩餘 ${remaining} 秒 · 時間到自動公布`;
- if(!q.revealed&&deadline&&Date.now()>=deadline)document.querySelectorAll('#qOpts button').forEach(b=>b.disabled=true)
-}
+let latestGlobalQuestion=null;
+function clearQuestionState(){latestGlobalQuestion=null;if($('questionStatus'))$('questionStatus').textContent=''}
 function handleGlobalQuestion(q){
- if(StudentV8.finished()||!q||q.closed){$('qModal').classList.add('hidden');if(!q)currentQuestionId='';stopQuestionCountdown();return}
+ if(StudentV8.finished()||!q||q.closed){$('qModal').classList.add('hidden');if(!q)currentQuestionId='';clearQuestionState();return}
  currentQuestionId=q.id;latestGlobalQuestion=q;$('qModal').classList.remove('hidden');
  $('accInfo').textContent=q.accidentSummary||'';$('qPrompt').textContent=q.prompt||'';
- const answer=q.answers&&q.answers[uid],expired=Number(q.answerDeadlineAt)>0&&Date.now()>=Number(q.answerDeadlineAt);
- $('qOpts').innerHTML=(q.options||[]).map((o,i)=>`<button data-i="${i}" class="${answer&&Number(answer.option)===i?'picked ':''}${q.revealed&&i===Number(q.correctIndex)?'correct':''}" ${(answeredQuestionId===q.id||answer||q.revealed||expired)?'disabled':''}>${String.fromCharCode(65+i)}. ${safeQuestionText(o)}</button>`).join('');
+ const answer=q.answers&&q.answers[uid];
+ $('qOpts').innerHTML=(q.options||[]).map((o,i)=>`<button data-i="${i}" class="${answer&&Number(answer.option)===i?'picked ':''}${q.revealed&&i===Number(q.correctIndex)?'correct':''}" ${(answeredQuestionId===q.id||answer||q.revealed)?'disabled':''}>${String.fromCharCode(65+i)}. ${safeQuestionText(o)}</button>`).join('');
  $('answerWait').classList.toggle('hidden',!answer&&answeredQuestionId!==q.id&&!q.revealed);
- if(answer||answeredQuestionId===q.id)$('answerWait').textContent='已送出，時間到自動公布。';
+ if($('questionStatus'))$('questionStatus').textContent=q.revealed?'老師講解中，等待老師繼續行車':'請慢慢思考，老師會決定何時公布答案';
+ if(answer||answeredQuestionId===q.id)$('answerWait').textContent='已送出，等待老師公布。';
  document.querySelectorAll('#qOpts button').forEach(b=>b.onclick=async()=>{
-  const live=latestGlobalQuestion;if(!live||live.id!==q.id||live.closed||live.revealed||answeredQuestionId===q.id||(Number(live.answerDeadlineAt)>0&&Date.now()>=Number(live.answerDeadlineAt)))return;
-  answeredQuestionId=q.id;document.querySelectorAll('#qOpts button').forEach(x=>{x.disabled=true;x.classList.toggle('picked',x===b)});$('answerWait').classList.remove('hidden');$('answerWait').textContent='已送出，時間到自動公布。';
+  const live=latestGlobalQuestion;if(!live||live.id!==q.id||live.closed||live.revealed||answeredQuestionId===q.id)return;
+  answeredQuestionId=q.id;document.querySelectorAll('#qOpts button').forEach(x=>{x.disabled=true;x.classList.toggle('picked',x===b)});$('answerWait').classList.remove('hidden');$('answerWait').textContent='已送出，等待老師公布。';
   try{await db.ref(`rooms/${room}/globalQuestion/answers/${uid}`).set({option:Number(b.dataset.i),name:$('nameInput').value.trim(),ts:firebase.database.ServerValue.TIMESTAMP})}
-  catch(error){if(latestGlobalQuestion?.id===q.id&&!latestGlobalQuestion.revealed){answeredQuestionId='';handleGlobalQuestion(latestGlobalQuestion);$('answerWait').classList.remove('hidden');$('answerWait').textContent='答案尚未送出，請在時間內重試。'}}
+  catch(error){if(latestGlobalQuestion?.id===q.id&&!latestGlobalQuestion.revealed&&!latestGlobalQuestion.closed){answeredQuestionId='';handleGlobalQuestion(latestGlobalQuestion);$('answerWait').classList.remove('hidden');$('answerWait').textContent='答案尚未送出，請重試。'}}
  });
- if(q.revealed){let msg=!answer?'本題未作答。':Number(answer.option)===Number(q.correctIndex)?'✅ 答對！':'❌ 答錯。';$('answerWait').classList.remove('hidden');$('answerWait').textContent=msg+' '+(q.explanation||'')}
- updateQuestionCountdown();if(!questionCountdownTimer)questionCountdownTimer=setInterval(updateQuestionCountdown,250)
+ if(q.revealed){let msg=!answer?'本題未作答。':Number(answer.option)===Number(q.correctIndex)?'✅ 答對！':'❌ 答錯。';$('answerWait').classList.remove('hidden');$('answerWait').textContent=msg+' '+(q.explanation||'')+' 老師講解中，等待老師繼續行車。'}
 }
 renderColors();StudentV8.mount();init().catch(error=>{$('joinMsg').textContent='連線失敗，請檢查網路後重新整理。';$('joinMsg').classList.remove('hidden');$('joinBtn').disabled=true;console.error(error)});
