@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>險中求生城市交通大作戰｜加入遊戲 v8.0</title>
+<style>
+:root{--deep:#10295a;--blue:#2d8cff;--yellow:#ffd84c;--green:#38c65b;--red:#ef4444;--paper:#fffef5}
+*{box-sizing:border-box}body{margin:0;font-family:"Microsoft JhengHei",sans-serif;background:linear-gradient(#76d9ff 0 55%,#55ba74 55%);color:#17315f;min-height:100vh}
+.wrap{max-width:720px;margin:auto;padding:12px}.box{background:var(--paper);border:4px solid var(--deep);border-radius:22px;box-shadow:0 7px 0 rgba(16,41,90,.22);overflow:hidden;margin-bottom:12px}.head{background:linear-gradient(#ffe974,#ffb720);padding:14px 16px;border-bottom:4px solid var(--deep);font-weight:1000;font-size:24px}.body{padding:14px}.hidden{display:none!important}
+input{width:100%;padding:13px;border:3px solid #3861a5;border-radius:13px;font-size:17px;font-weight:900;color:#17315f;background:#fff}
+button{position:relative;overflow:hidden;border:4px solid var(--deep);border-radius:15px;padding:12px 14px;font-size:16px;font-weight:1000;color:white;background:linear-gradient(#6fd4ff,#258dff);box-shadow:0 5px 0 rgba(16,41,90,.25);cursor:pointer;transition:.15s}
+button:not(:disabled){animation:pulse 2s ease-in-out infinite}button:hover:not(:disabled){transform:translateY(-2px) scale(1.01);filter:brightness(1.06)}button:active:not(:disabled){transform:translateY(3px)}button:disabled{opacity:.45;filter:grayscale(.6);cursor:not-allowed;animation:none}@keyframes pulse{50%{filter:brightness(1.08)}}.green{background:linear-gradient(#80ef84,#2ebf4f)}.orange{background:linear-gradient(#ffc164,#f08a18)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px}.step{background:#eaf2ff;border:2px solid #7595c6;border-radius:10px;padding:8px;text-align:center;font-size:11px;font-weight:900}.step.done{background:#fff2f2;border-color:#d9444d;color:#9a2028;position:relative}.step.done:after{content:"✓";position:absolute;right:-5px;top:-18px;color:#e11d2e;font-size:38px;text-shadow:2px 2px white}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vehicle,.role{border:3px solid #315ea5;border-radius:17px;background:#fff;padding:12px}.vehicle.selected,.role.selected{outline:5px solid var(--yellow);background:#fffbe3}.title{font-size:20px;font-weight:1000;margin-bottom:8px}.vehiclePickRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}.vehiclePickRow .title{margin:0}.vehiclePickRow button{min-width:96px;padding:9px 10px;font-size:14px}
+.colors{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:12px 0}.swatch{aspect-ratio:1;padding:0;border-radius:12px}.swatch.sel{outline:4px solid var(--yellow);outline-offset:2px}
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.role{min-height:68px;display:grid;grid-template-columns:30px minmax(0,1fr) 54px;align-items:center;gap:5px;padding:6px 7px;border-radius:12px}.role .icon{font-size:23px;line-height:1}.role .title{font-size:13px;margin:0;line-height:1.2}.role button{width:54px;padding:6px 4px;font-size:11px;border-width:3px;border-radius:10px}.notice.error{background:#ffe1e1;border-color:#d44b55;color:#98232b;animation:shake .28s linear 2}@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.card{background:linear-gradient(#fffdf2,#fff1b9);border:4px solid var(--deep);border-radius:19px;padding:17px}.card h3{font-size:25px;margin:0 0 8px}.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.chip{background:#fff;border:2px solid #d2a83a;border-radius:999px;padding:6px 9px;font-weight:900;font-size:12px}
+.speed{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:stretch}.comment{border:3px solid var(--deep);border-radius:14px;padding:12px;background:#e7f4ff;font-weight:900;display:flex;align-items:center}.comment.safe{background:#e3f8e7;color:#25673a}.comment.warn{background:#fff3c0;color:#805c00}.comment.bad{background:#ffdada;color:#9a2222}
+.summary{display:grid;grid-template-columns:1fr 1fr;gap:8px}.sum{border:2px solid #7995c0;background:#edf4ff;border-radius:11px;padding:9px;font-size:12px;font-weight:900}.sum b{display:block;color:#214986;margin-bottom:4px}
+.wait{text-align:center;padding:26px}.wait .big{font-size:50px;margin-bottom:9px}.hud{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.hud .h{border:3px solid var(--deep);border-radius:13px;padding:9px;text-align:center;background:#fff}.hud .h small{display:block;font-weight:900;color:#678}.hud .h strong{font-size:18px}.event{border:3px solid #8b6c17;background:#fff4b0;border-radius:13px;padding:11px;font-weight:1000;margin-top:10px}.result{border:3px solid #4b9a5b;background:#e7f8e9;border-radius:13px;padding:11px;font-weight:900;margin-top:10px}
+.modal{position:fixed;inset:0;background:rgba(8,18,42,.82);display:flex;justify-content:center;padding:16px;z-index:99;overflow-y:auto;-webkit-overflow-scrolling:touch;align-items:flex-start}.modalbox{width:min(660px,100%);background:#fffef5;border:5px solid var(--deep);border-radius:22px;padding:18px;box-shadow:0 15px 40px rgba(0,0,0,.35);max-height:calc(100dvh - 32px);overflow-y:auto;-webkit-overflow-scrolling:touch;margin:auto}.modal h2{margin:0 0 8px}.acc{background:#ffe1e1;border:3px solid #d04b4b;border-radius:12px;padding:10px;margin:10px 0;font-weight:900;line-height:1.6}.opts{display:grid;gap:8px}.opts button{text-align:left;background:linear-gradient(#7eafff,#3978db)}.opts button.picked{outline:5px solid #ffd84c}.notice{padding:10px;border-radius:10px;background:#fff0b6;border:2px solid #c88e17;font-weight:900;margin-bottom:10px}
+@media(max-width:600px){.grid2,.speed,.summary{grid-template-columns:1fr}.roles{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}.hud{grid-template-columns:1fr 1fr}}
+
+.scenarioChoices{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.scenarioChoice{border:3px solid #315ea5;border-radius:15px;background:linear-gradient(#fffdf2,#fff2bd);padding:12px;color:#17315f;box-shadow:0 4px 0 rgba(16,41,90,.18);cursor:pointer;text-align:left;min-height:145px}
+.scenarioChoice h3{font-size:18px;margin:0 0 7px;color:#17315f}.scenarioChoice p{font-size:13px;line-height:1.5;margin:0;font-weight:800}.scenarioChoice.selected{outline:5px solid var(--yellow);background:#fff8cf}
+@media(max-width:600px){.scenarioChoices{grid-template-columns:1fr}}
+
+.speedAdjust{display:grid;grid-template-columns:55px 55px minmax(0,1fr) 55px 55px;gap:5px;align-items:stretch;margin-top:12px}
+.speedAdjust button{font-size:18px;padding:10px 3px}.speedAdjust .speedReadout{border:4px solid var(--deep);border-radius:15px;background:#fff;text-align:center;padding:8px 6px;display:grid;place-items:center;box-shadow:0 4px 0 rgba(16,41,90,.14)}
+.speedAdjust .speedReadout small{display:block;font-size:11px;font-weight:900;color:#6d7e98}.speedAdjust .speedReadout strong{display:block;font-size:25px;line-height:1.05}.speedMinus{background:linear-gradient(#ff9c9c,#e64f57)}.speedPlus{background:linear-gradient(#84e893,#36bb55)}
+.bonusToast{position:fixed;left:50%;top:18px;transform:translate(-50%,-18px) scale(.96);opacity:0;z-index:180;pointer-events:none;background:#e7f9e9;border:4px solid #2f9d4b;border-radius:999px;padding:9px 15px;font-size:14px;font-weight:1000;color:#17652b;box-shadow:0 7px 18px rgba(0,0,0,.2);white-space:nowrap}.bonusToast.show{animation:bonusFlash 1.45s ease forwards}
+@keyframes bonusFlash{0%{opacity:0;transform:translate(-50%,-18px) scale(.96)}14%{opacity:1;transform:translate(-50%,0) scale(1)}74%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-10px) scale(.98)}}
+@media(max-width:460px){.speedAdjust{grid-template-columns:40px 40px minmax(0,1fr) 40px 40px}.bonusToast{font-size:12px;padding:8px 11px}}
+
+.playerInfoPanel{margin-top:12px;border:3px solid #6c85ad;border-radius:14px;background:#eef5ff;padding:10px 12px;text-align:left;font-weight:900;line-height:1.7}
+.envGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}.envBadge{border:3px solid var(--deep);border-radius:12px;background:#fff;padding:9px;text-align:center;font-weight:1000}.envBadge small{display:block;color:#647795;font-size:11px}.envBadge strong{font-size:17px}
+.bonusToast.hint{background:#fff4c7;border-color:#d69b20;color:#7b5600}
+.drawLocked{opacity:.8}
+
+@media(max-width:700px){
+  .modal{padding:10px 8px}
+  .modalbox{max-height:calc(100vh - 20px);width:100%;margin:0 auto 10px}
+}
+
+/* v8.0 overspeed collisions */
+.overspeedRule{margin-top:5px;background:#fff0e4;color:#a42515;border:2px solid #f4a08b;border-radius:10px;padding:6px 8px;font-weight:1000;font-size:12px;line-height:1.4}
+.gamePanel{margin:10px 0;border:3px solid #2c568a;border-radius:15px;padding:12px;background:linear-gradient(135deg,#e5f7ff,#f5efff);box-shadow:0 3px 0 #b6cee8}
+.gamePanel h3{margin:0 0 7px;font-size:18px}.progressTrack{height:14px;border-radius:20px;background:#d0dbea;border:2px solid #627fa5;overflow:hidden;margin:9px 0}.progressFill{height:100%;width:0;background:linear-gradient(90deg,#4cdf85,#28acd6);transition:width .3s}
+.routeChoices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}.routeChoices button{font-size:14px;border-width:3px;padding:8px 3px;background:linear-gradient(#7f9fc5,#43658f)}.routeChoices button.active{background:linear-gradient(#90ed91,#27b958);outline:3px solid #ffd14c}
+.missionNext{font-weight:1000;font-size:15px;line-height:1.65}.missionStats{font-weight:900;color:#496889;font-size:12px}.miniDecision{margin-top:12px;padding:12px;background:linear-gradient(#fffad8,#ffeb94);border:4px solid #a56c21;border-radius:15px;box-shadow:0 5px 0 #b68b46}.miniDecision h3{margin:0 0 6px;font-size:20px}.miniDecision p{font-size:13px;line-height:1.5;font-weight:900;margin:4px 0 10px}.miniChoices{display:grid;gap:8px}.miniChoices button{font-size:14px;padding:10px;background:linear-gradient(#ffd47c,#f29826);color:#533600}.miniDecision .timer{font-weight:900;color:#875100;font-size:12px}
+@media(max-width:480px){.routeChoices button{font-size:12px}.gamePanel{padding:10px}}
+.scoreTarget{margin-top:10px;padding:8px 10px;background:#fff5c7;border:2px solid #cc9c21;border-radius:12px;font-size:13px;font-weight:900;color:#5b440e}.scoreTarget strong{font-size:18px;color:#123d74}.scoreTarget span{font-size:12px}
+.streakPanel{border:3px solid #c58017;background:#fff7d7;border-radius:13px;padding:11px;margin:10px 0}.streakPanel>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:10px}.streakPanel strong{color:#8b4d00}.streakPanel small{font-size:12px;font-weight:900;color:#785b20}.streakPanel .progressTrack{margin:8px 0}
+@media(max-width:420px){.speedAdjust{gap:3px}.speedAdjust button{font-size:15px;padding:8px 1px}.speedAdjust .speedReadout strong{font-size:20px}}
+
+/* ==== v8.0 cartoon reskin overrides ==== */
+:root{--deep:#18315e;--blue:#4aa8ff;--yellow:#ffd24d;--green:#37c978;--red:#ff6666;--paper:#fff8eb}
+body{background:
+ radial-gradient(circle at 12% 16%,rgba(255,255,255,.3) 0 12px,transparent 13px),
+ radial-gradient(circle at 88% 12%,rgba(255,255,255,.22) 0 10px,transparent 11px),
+ linear-gradient(180deg,#93ebff 0%,#76d5ff 48%,#60c4ff 60%,#69c97c 60.1%,#53b96a 100%);
+ background-size:140px 140px,180px 180px,auto;color:#183562}
+.wrap{max-width:760px;padding:16px}
+.box{background:linear-gradient(180deg,#fffefb,#fff6dc);border:5px solid var(--deep);border-radius:26px;box-shadow:0 12px 0 rgba(16,41,90,.16),0 18px 30px rgba(0,0,0,.08);margin-bottom:14px}
+.head{background:linear-gradient(180deg,#6f8fff 0%,#4b6dde 54%,#3551bf 100%);color:#fff;padding:15px 18px;border-bottom:5px solid var(--deep);font-size:24px;text-shadow:0 2px 0 rgba(12,24,56,.35)}
+input{border-width:4px;border-color:#5979bb;border-radius:16px;background:#fff;box-shadow:inset 0 2px 0 rgba(0,0,0,.03)}
+button{border-radius:17px;padding:12px 15px;box-shadow:0 6px 0 rgba(16,41,90,.2),0 12px 22px rgba(28,53,102,.12)}
+.steps{gap:9px}.step{background:linear-gradient(180deg,#edf5ff,#d9e9ff);border:3px solid #87a5d8;border-radius:14px;padding:10px;box-shadow:0 4px 0 rgba(16,41,90,.06)}.step.done{background:linear-gradient(180deg,#fff4f1,#ffe2e0);border-color:#eb7580;color:#a42f39}
+.vehicle,.role,.sum,.envBadge,.hud .h,.playerInfoPanel,.event,.result,.comment,.speedReadout,.card,.gamePanel,.streakPanel{box-shadow:0 4px 0 rgba(16,41,90,.08)}
+.vehicle,.role{border-width:4px;border-color:#5574b7;border-radius:18px;background:linear-gradient(180deg,#fff,#f6fbff)}
+.vehicle.selected,.role.selected{outline:5px solid var(--yellow);background:linear-gradient(180deg,#fffdee,#fff6cf)}
+.title{color:#17315f}.vehiclePickRow button{min-width:100px}
+.swatch{border:3px solid rgba(24,49,94,.28);box-shadow:0 4px 0 rgba(16,41,90,.1)}
+.swatch.sel{outline:5px solid var(--yellow)}
+.role{min-height:74px;grid-template-columns:34px minmax(0,1fr) 58px}.role .icon{font-size:25px}.role .title{font-size:14px}.role button{border-radius:12px}
+.card{background:linear-gradient(180deg,#fffdf4,#fff1bf);border-width:5px;border-radius:22px;box-shadow:0 10px 0 rgba(16,41,90,.12)}.card h3{color:#17315f}
+.comment{border-width:4px;border-radius:16px;background:linear-gradient(180deg,#edf8ff,#dcefff)}.comment.safe{background:linear-gradient(180deg,#eefdf1,#d6f5dd)}.comment.warn{background:linear-gradient(180deg,#fff9db,#ffe89d)}.comment.bad{background:linear-gradient(180deg,#ffe6e6,#ffd4d4)}
+.sum{border-width:3px;border-radius:14px;background:linear-gradient(180deg,#f7fbff,#e6f1ff)}.sum b{font-size:13px}
+.wait .big{font-size:58px;filter:drop-shadow(0 4px 0 rgba(0,0,0,.12))}
+.playerInfoPanel{border-width:4px;border-radius:16px;background:linear-gradient(180deg,#f4f9ff,#e8f1ff);line-height:1.8}
+.envBadge{border-width:4px;border-radius:14px;background:linear-gradient(180deg,#fff,#edf6ff)}.envBadge strong{font-size:18px}
+.speedAdjust{gap:7px}.speedAdjust button{border-radius:14px}.speedAdjust .speedReadout{border-width:5px;border-radius:18px;background:linear-gradient(180deg,#fff,#eff6ff);box-shadow:0 7px 0 rgba(16,41,90,.12)}.speedAdjust .speedReadout strong{font-size:26px;color:#183562}
+.hud .h{border-width:4px;border-radius:16px;background:linear-gradient(180deg,#fff,#eef6ff)}
+.gamePanel{border-width:4px;border-radius:18px;background:linear-gradient(135deg,#eefaff,#f8efff);box-shadow:0 8px 0 rgba(16,41,90,.1)}
+.progressTrack{height:16px;border-width:3px;border-radius:999px;background:linear-gradient(180deg,#d7e4f4,#c4d5e7)}.progressFill{background:linear-gradient(90deg,#5cf084,#27b4e3)}
+.streakPanel{margin-top:12px;padding:13px;background:linear-gradient(180deg,#fff7d8,#ffe9a0);border:4px solid #cb9f37;border-radius:18px;box-shadow:0 7px 0 rgba(175,130,28,.16)}
+.streakPanel b{font-size:16px;color:#704d00}.streakPanel strong{display:block;font-size:22px;color:#c96b00}.streakPanel small{display:block;margin-top:4px;font-weight:900;color:#7d6120}
+.event{border-width:4px;border-radius:16px;background:linear-gradient(180deg,#fff7bf,#ffe68e)}.result{border-width:4px;border-radius:16px;background:linear-gradient(180deg,#eefcf1,#daf5de)}
+.modal{background:rgba(9,18,42,.78);backdrop-filter:blur(3px)}.modalbox{background:linear-gradient(180deg,#fffefb,#fff4d8);border-width:6px;border-radius:26px;box-shadow:0 20px 44px rgba(0,0,0,.32)}
+.acc{background:linear-gradient(180deg,#ffeaea,#ffd9d9);border-width:4px;border-radius:14px}
+.opts button{text-align:left;background:linear-gradient(180deg,#89b6ff,#4a89f5);border-radius:16px}.opts button.picked{outline:5px solid #ffd24d}
+.notice{border-radius:12px;background:linear-gradient(180deg,#fff2c2,#ffe58e);border-width:3px}
+.bonusToast{background:linear-gradient(180deg,#ebffef,#d4f6dc);border-width:4px;border-radius:999px;box-shadow:0 10px 22px rgba(0,0,0,.22)}.bonusToast.hint{background:linear-gradient(180deg,#fff7d8,#ffe7a0)}
+.overspeedRule{background:linear-gradient(180deg,#fff2e7,#ffd8c3);border-width:3px;border-radius:12px}
+#joinBox .head{display:flex;align-items:center;justify-content:center;gap:10px}
+#joinBox .head::after{content:"v8.0";display:inline-block;padding:4px 10px;border:2px solid #fff3b2;border-radius:999px;background:rgba(255,255,255,.18);font-size:12px;letter-spacing:.5px}
+.scoreTarget{margin:12px 0;padding:12px 14px;background:linear-gradient(180deg,#eef8ff,#d8eeff);border:4px solid #85b5db;border-radius:16px;font-weight:1000;color:#20496f;box-shadow:0 6px 0 rgba(16,41,90,.08)}
+#speedJudge{display:block;margin-top:5px;font-size:14px;color:#20496f}
+@media(max-width:600px){.box{border-radius:22px}.head{font-size:21px}.envBadge strong{font-size:16px}}
+
+</style><link rel="stylesheet" href="student-v8.css?v=800"></head>
+<body><div class="wrap">
+<div class="box" id="joinBox"><div class="head">🚘 險中求生城市交通大作戰</div><div class="body">
+<div style="font-weight:1000;color:#566b8c;margin-bottom:6px">房間號</div>
+<input id="roomInput" maxlength="4" inputmode="numeric" readonly aria-readonly="true" style="width:100%;background:#eaf2ff;color:#17315f;font-size:24px;text-align:center;font-weight:1000;letter-spacing:4px" placeholder="請掃描老師 QR Code">
+<div style="font-weight:1000;color:#566b8c;margin:12px 0 6px">姓名</div>
+<input id="nameInput" maxlength="10" placeholder="請輸入姓名" style="width:100%">
+<button id="joinBtn" style="width:100%;margin-top:12px">加入遊戲</button>
+<div id="joinMsg" class="notice hidden"></div></div></div>
+<div id="setup" class="hidden">
+<div class="steps"><div class="step" id="s1">① 車輛</div><div class="step" id="s2">② 角色</div><div class="step" id="s3">③ 情境</div><div class="step" id="s4">④ 出發規劃</div></div>
+<div class="box" id="vehicleBox"><div class="head">① 選擇車輛</div><div class="body"><div class="grid2"><div class="vehicle" data-v="car"><div class="vehiclePickRow"><div class="title">🚗 汽車</div><button data-v="car">選擇</button></div></div><div class="vehicle" data-v="moto"><div class="vehiclePickRow"><div class="title">🛵 機車</div><button data-v="moto" class="green">選擇</button></div></div></div><div class="colors" id="colors"></div><button id="toRole" disabled style="width:100%">下一步：選角色 →</button></div></div>
+<div class="box hidden" id="roleBox"><div class="head">② 選擇角色</div><div class="body"><div class="roles" id="roles"></div><button id="toScenario" disabled style="width:100%;margin-top:10px">下一步：抽任務 →</button></div></div>
+<div class="box hidden" id="scenarioBox"><div class="head">③ 抽取任務情境</div><div class="body"><div class="card" id="scenarioCard"><h3>🎴 尚未抽取</h3><div>按下按鈕後，系統會從你的角色任務中隨機抽出一個情境。</div></div><button id="drawBtn" class="orange" style="width:100%;margin-top:10px">🎴 抽取任務情境</button><div id="speedArea" class="hidden"><div class="speed" style="margin-top:12px"><input id="speedInput" type="number" min="0" max="160" placeholder="設定你的時速 km/h"><div id="speedComment" class="comment">請自行設定行車時速</div></div><section id="strategySetup" class="strategySetup" aria-label="出發前規劃"></section><button id="readyBtn" class="green" disabled style="width:100%;margin-top:10px">✅ 準備完成</button></div></div></div>
+<div class="box"><div class="head">你的選擇</div><div class="body summary"><div class="sum"><b>車輛</b><span id="sumV">尚未選擇</span></div><div class="sum"><b>角色</b><span id="sumR">尚未選擇</span></div><div class="sum"><b>任務</b><span id="sumS">尚未抽卡</span></div><div class="sum"><b>時速</b><span id="sumSpeed">尚未設定</span></div></div></div>
+</div>
+<div class="box hidden" id="waitBox"><div class="head">READY</div><div class="wait"><div class="big">🚦</div><h2>等待老師發車</h2><div id="waitInfo"></div><div class="playerInfoPanel">📋 我的任務：<span id="waitMission">—</span><div class="envGrid"><div class="envBadge"><small>路況</small><strong id="waitRoad">尚未公布</strong></div><div class="envBadge"><small>天氣</small><strong id="waitWeather">尚未公布</strong></div></div></div><div class="scoreTarget">🎯 安全行車參考：<strong id="waitTarget">發車後公布</strong></div><div class="speedAdjust"><button class="speedMinus smallStep" data-speed-delta="-5">−5</button><button class="speedMinus smallStep" data-speed-delta="-1">−1</button><div class="speedReadout"><small>可隨時調整時速</small><strong id="waitSpeed">0 km/h</strong></div><button class="speedPlus smallStep" data-speed-delta="1">＋1</button><button class="speedPlus smallStep" data-speed-delta="5">＋5</button></div></div></div>
+<div class="box hidden" id="liveBox"><div class="head">行車中</div><div class="body">
+<div class="playerInfoPanel" style="margin-top:0">📋 我的任務：<span id="liveMission">—</span><div class="envGrid"><div class="envBadge"><small>路況</small><strong id="liveRoad">—</strong></div><div class="envBadge"><small>天氣</small><strong id="liveWeather">—</strong></div></div></div><div class="scoreTarget">🎯 安全行車參考：<strong id="liveTarget">發車後公布</strong><span id="speedJudge"></span><div id="overspeedRule" class="overspeedRule">⚠️ 超速撞擊界線將於發車後顯示</div></div><div class="speedAdjust"><button class="speedMinus smallStep" data-speed-delta="-5">−5</button><button class="speedMinus smallStep" data-speed-delta="-1">−1</button><div class="speedReadout"><small>目前時速</small><strong id="hSpeed">0 km/h</strong></div><button class="speedPlus smallStep" data-speed-delta="1">＋1</button><button class="speedPlus smallStep" data-speed-delta="5">＋5</button></div><div class="hud" style="grid-template-columns:1fr;margin-top:9px"><div class="h"><small>積分　｜　<span id="playerRank">排名計算中</span></small><strong id="hScore">0</strong></div></div>
+
+<section class="walletPanel" id="walletPanel" aria-label="任務資金"></section><section class="gamePanel" id="routePanel" aria-label="路線決策"></section><section class="gamePanel hidden" id="incidentPanel" aria-live="polite"></section><div class="gamePanel" id="missionPanel"><h3>🧭 連續拜訪挑戰</h3><div id="missionNext" class="missionNext">發車後公布第一站</div><div class="progressTrack"><div id="missionFill" class="progressFill"></div></div><div class="missionStats" id="missionStats">完成 0 / 3 站</div></div>
+
+<div class="streakPanel"><div><b>🔥 安全駕駛連擊</b><strong id="safeStreak">0 / 4</strong></div><div class="progressTrack"><div class="progressFill" id="streakFill"></div></div><small>每5秒符合目前目標速域＋3分；每連續4次額外＋10分</small></div><div class="event" id="eventBox">準備出發</div>
+<div class="result hidden" id="resultBox"></div>
+</div></div>
+</div>
+<div class="bonusToast" id="bonusToast">✅ 安全駕駛並順利完成任務＋3</div>
+<div class="modal hidden" id="qModal"><div class="modalbox"><h2>💥 全班案例討論</h2><div class="acc" id="accInfo"></div><h3 id="qPrompt"></h3><div class="opts" id="qOpts"></div><div id="answerWait" class="notice hidden" style="margin-top:10px">已送出答案，等待老師公布。</div></div></div>
+
+
+<script src="bootstrap.js?v=800" data-page="student"></script></body></html>
