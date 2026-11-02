@@ -21,7 +21,10 @@ async function init(){
   }
 }
 function renderColors(){$('colors').innerHTML=GAME.colors.map(c=>`<button class="swatch ${c.hex===state.color?'sel':''}" data-c="${c.hex}" style="background:${c.hex}"></button>`).join('');document.querySelectorAll('.swatch').forEach(b=>b.onclick=()=>{state.color=b.dataset.c;renderColors();updateSummary()})}
-function renderRoles(){$('roles').innerHTML=GAME.roles.map(r=>`<div class="role ${state.role===r.id?'selected':''}" data-r="${r.id}"><div class="icon">${r.icon}</div><div class="title">${r.name}</div><button data-r="${r.id}">選擇</button></div>`).join('');document.querySelectorAll('.role button').forEach(b=>b.onclick=()=>{state.role=b.dataset.r;state.scenario=null;renderRoles();$('toScenario').disabled=false;$('s2').classList.add('done');updateSummary()})}
+function renderRoles(){
+ $('roles').innerHTML=GAME.roles.map(r=>{let economy=RISK_GAME.roleFor(r.id);return `<div class="role ${state.role===r.id?'selected':''}" data-r="${r.id}"><div class="icon">${r.icon}</div><div class="title">${r.name}</div><button data-r="${r.id}">選擇</button><small class="roleEconomy">起始 $${economy.startingWealth.toLocaleString('zh-TW')}<br>每站＋$${economy.stationIncome.toLocaleString('zh-TW')} · 至少 ${economy.workSeconds} 秒</small></div>`}).join('');
+ document.querySelectorAll('.role button').forEach(b=>b.onclick=()=>{state.role=b.dataset.r;state.scenario=null;renderRoles();$('toScenario').disabled=false;$('s2').classList.add('done');updateSummary();StudentV8.renderSetup()})
+}
 function updateSummary(){let v=state.vehicle?GAME.getVehicle(state.vehicle):null,r=state.role?GAME.getRole(state.role):null;$('sumV').textContent=v?GAME.colorName(state.color)+v.name:'尚未選擇';$('sumR').textContent=r?r.name:'尚未選擇';$('sumS').textContent=state.scenario?state.scenario.title:'尚未抽卡';$('sumSpeed').textContent=state.speed!=null?state.speed+' km/h':'尚未設定'}
 document.querySelectorAll('.vehicle button').forEach(b=>b.onclick=()=>{state.vehicle=b.dataset.v;document.querySelectorAll('.vehicle').forEach(x=>x.classList.toggle('selected',x.dataset.v===state.vehicle));$('toRole').disabled=false;$('s1').classList.add('done');updateSummary()});$('toRole').onclick=()=>{$('roleBox').classList.remove('hidden');renderRoles();scrollToEl($('roleBox'))};function resetScenarioDraw(){
  state.scenario=null;$('scenarioCard').classList.remove('drawLocked');$('scenarioCard').innerHTML='<h3>🎴 尚未抽取</h3><div>按下按鈕後，系統會從你的角色任務中隨機抽出一個情境。</div>';$('drawBtn').disabled=false;$('drawBtn').textContent='🎴 抽取任務情境';$('speedArea').classList.add('hidden');updateSummary()
@@ -74,7 +77,7 @@ $('readyBtn').onclick=async()=>{
   scenarioAction:state.scenario.action,
   taskPace:state.scenario.pace,taskMin:Number(state.scenario.targetMin),taskMax:Number(state.scenario.targetMax),
   scenarioPressure:state.scenario.pressure||0,scenarioDistraction:state.scenario.distraction||0,
-  speed:Number(state.speed),routeChoice:state.routeChoice,insurancePlan:state.insurancePlan,score:0,ready:true,status:'ready',
+  speed:Number(state.speed),routeChoice:state.routeChoice,insurancePlan:state.insurancePlan,ready:true,status:'ready',
   currentEvent:'等待出發',updatedAt:firebase.database.ServerValue.TIMESTAMP
  });
  $('setup').classList.add('hidden');$('waitBox').classList.remove('hidden');
@@ -100,7 +103,7 @@ function drivingScoreRange(env){
 function renderTargetRange(){
  let r=drivingScoreRange(currentEnvironment),label=r?`${r.min}～${r.max} km/h`:'發車後公布';
  for(const id of ['waitTarget','liveTarget'])if($(id))$(id).textContent=label;
- if($('speedJudge')){$('speedJudge').textContent=r?(Number(state.speed)>r.max+10?' 💥 危險超速':Number(state.speed)>=r.min&&Number(state.speed)<=r.max?' ✅ 達標':' ⚠️ 請調整'):' ';}
+ if($('speedJudge')){$('speedJudge').textContent=r?(Number(state.speed)>r.max+10?' 💥 危險超速':Number(state.speed)<=r.max?' ✅ 留意路況，穩定行車':' ⚠️ 請減速'):' ';}
  if($('overspeedRule'))$('overspeedRule').textContent=r?`⚠️ 超過 ${r.max+10} km/h：可能撞擊護欄，需處理現場並依保障負擔損失`:'⚠️ 超速撞擊界線將於發車後顯示';
 }
 function renderEnvironment(env){
@@ -117,7 +120,7 @@ async function changeLiveSpeed(delta){if(!playerRef||kicked||overspeedStunned||!
 document.querySelectorAll('[data-speed-delta]').forEach(b=>b.onclick=()=>changeLiveSpeed(Number(b.dataset.speedDelta||0)));
 function watchRoom(){
   roomRootRef=db.ref(`rooms/${room}`);
-  roomRootRef.on('value',s=>{let meta=s.val();if(!meta){kickFromRoom('老師已關閉投影畫面，房間已自動關閉');return}if(!hostAlive(meta)){kickFromRoom('老師目前不在線，請等待老師重新建立房間');return}if(meta.status==='waiting'&&wasInGame&&!meta.players?.[uid]){kickFromRoom('老師已重設房間，請重新掃描邀請加入。');return}if(['running','question','finished'].includes(meta.status))wasInGame=true;renderEnvironment(meta.environment||null);let group=Object.entries(meta.players||{}).filter(([,p])=>p.ready).sort((a,b)=>Number(b[1].score||0)-Number(a[1].score||0));let rank=group.findIndex(([id])=>id===uid);if($('playerRank'))$('playerRank').textContent=rank<0?'等待發車':`第${rank+1}／${group.length}名`;let st=meta.status;StudentV8.setStatus(st);if(st==='running'||st==='question'){$('waitBox').classList.add('hidden');$('setup').classList.add('hidden');$('liveBox').classList.remove('hidden')}if(st==='finished'){$('qModal').classList.add('hidden');$('eventBox').textContent='🏁 本局已結束，請看老師投影公布前三名！'}});
+  roomRootRef.on('value',s=>{let meta=s.val();if(!meta){kickFromRoom('老師已關閉投影畫面，房間已自動關閉');return}if(!hostAlive(meta)){kickFromRoom('老師目前不在線，請等待老師重新建立房間');return}if(meta.status==='waiting'&&wasInGame&&!meta.players?.[uid]){kickFromRoom('老師已重設房間，請重新掃描邀請加入。');return}if(['running','question','finished'].includes(meta.status))wasInGame=true;renderEnvironment(meta.environment||null);let group=Object.entries(meta.players||{}).filter(([,p])=>p.ready).sort((a,b)=>RISK_GAME.getWealth(b[1])-RISK_GAME.getWealth(a[1])||String(a[1].name||'').localeCompare(String(b[1].name||''),'zh-TW'));let rank=group.findIndex(([id])=>id===uid);if($('playerRank'))$('playerRank').textContent=rank<0?'等待發車':`財產第${rank+1}／${group.length}名`;let st=meta.status;StudentV8.setStatus(st);if(st==='running'||st==='question'){$('waitBox').classList.add('hidden');$('setup').classList.add('hidden');$('liveBox').classList.remove('hidden')}if(st==='finished'){$('qModal').classList.add('hidden');$('eventBox').textContent='🏁 本局結束，依目前財產排名！'}});
   playerRef.on('value',s=>{let p=s.val();if(p)renderLive(p)});
   questionRef=db.ref(`rooms/${room}/globalQuestion`);questionRef.on('value',s=>handleGlobalQuestion(s.val()));
   hostWatchTimer=setInterval(async()=>{if(!roomRootRef||kicked)return;try{let s=await roomRootRef.once('value');let meta=s.val();if(!hostAlive(meta))kickFromRoom('老師已離開，房間已關閉')}catch(e){}},5000)
@@ -132,15 +135,35 @@ function renderMissionState(p){
 function renderLive(p){
  StudentV8.render(p);
  let spd=Number(p.speed||0);state.speed=spd;overspeedStunned=p.status==='overspeed';document.querySelectorAll('#liveBox [data-speed-delta]').forEach(b=>b.disabled=overspeedStunned||!StudentV8.canDrive());$('hSpeed').textContent=spd+' km/h';if($('waitSpeed'))$('waitSpeed').textContent=spd+' km/h';
- $('hScore').textContent=p.score||0;$('eventBox').textContent=p.currentEvent||'行駛中';renderMissionState(p);
- let crashAt=Number(p.lastOverspeedCrashAt||0);if(crashAt&&crashAt!==lastOverspeedSeen){lastOverspeedSeen=crashAt;showDriveToast('💥 超速撞擊！請處理現場並檢視損失','hint')}
- let streak=Math.max(0,Number(p.safeStreak||0));$('safeStreak').textContent=`${streak} 連擊｜距離獎勵 ${4-streak%4} 次`;
- $('streakFill').style.width=((streak%4)/4*100)+'%';renderTargetRange();
- let bonusAt=Number(p.lastMissionBonusAt||0);
- if(bonusAt&&bonusAt!==lastMissionBonusSeen){lastMissionBonusSeen=bonusAt;if(Number(p.lastBonusAmount||3)>3)showDriveToast('🔥 安全連擊達成！＋13 分','success')}
+ $('hScore').textContent='$'+Math.round(RISK_GAME.getWealth(p)).toLocaleString('zh-TW');$('eventBox').textContent=p.currentEvent||'行駛中';renderMissionState(p);renderTargetRange();
  let visitAt=Number(p.lastVisitAt||0);
- if(visitAt&&visitAt!==lastVisitSeen){lastVisitSeen=visitAt;showDriveToast('📍 成功抵達任務站點＋15 分','success')}
+ if(visitAt&&visitAt!==lastVisitSeen){lastVisitSeen=visitAt;const income=Number(p.lastJobIncome??RISK_GAME.roleFor(p.roleId).stationIncome);showDriveToast('📍 工作完成，收入＋$'+income.toLocaleString('zh-TW'),'success')}
  if(p.lastFeedback){$('resultBox').classList.remove('hidden');$('resultBox').textContent=p.lastFeedback}else $('resultBox').classList.add('hidden')
 }
-function handleGlobalQuestion(q){if(StudentV8.finished()){$('qModal').classList.add('hidden');return}if(!q){$('qModal').classList.add('hidden');currentQuestionId='';return}currentQuestionId=q.id;if(q.closed){$('qModal').classList.add('hidden');return}$('qModal').classList.remove('hidden');$('accInfo').textContent=q.accidentSummary||'';$('qPrompt').textContent=q.prompt||'';$('qOpts').innerHTML=(q.options||[]).map((o,i)=>`<button data-i="${i}" ${(answeredQuestionId===q.id||q.revealed)?'disabled':''}>${String.fromCharCode(65+i)}. ${safeQuestionText(o)}</button>`).join('');$('answerWait').classList.toggle('hidden',answeredQuestionId!==q.id&&!q.revealed);if(answeredQuestionId!==q.id&&!q.revealed){document.querySelectorAll('#qOpts button').forEach(b=>b.onclick=async()=>{answeredQuestionId=q.id;document.querySelectorAll('#qOpts button').forEach(x=>{x.disabled=true;x.classList.toggle('picked',x===b)});$('answerWait').classList.remove('hidden');$('answerWait').textContent='已送出答案，等待老師公布。';await db.ref(`rooms/${room}/globalQuestion/answers/${uid}`).set({option:Number(b.dataset.i),name:$('nameInput').value.trim(),ts:firebase.database.ServerValue.TIMESTAMP})})}if(q.revealed){let ans=q.answers&&q.answers[uid];let msg=!ans?'未作答。':Number(ans.option)===Number(q.correctIndex)?'✅ 答對！':'❌ 答錯。';$('answerWait').classList.remove('hidden');$('answerWait').textContent=msg+' '+(q.explanation||'')}}
+let questionCountdownTimer=null,latestGlobalQuestion=null;
+function stopQuestionCountdown(){clearInterval(questionCountdownTimer);questionCountdownTimer=null;latestGlobalQuestion=null;if($('questionCountdown'))$('questionCountdown').textContent=''}
+function updateQuestionCountdown(){
+ const q=latestGlobalQuestion;if(!q||q.closed||StudentV8.finished()){stopQuestionCountdown();return}
+ const deadline=Number(q.revealed?q.resumeAt:q.answerDeadlineAt);
+ const remaining=Number.isFinite(deadline)?Math.max(0,Math.ceil((deadline-Date.now())/1000)):0;
+ if($('questionCountdown'))$('questionCountdown').textContent=q.revealed?`解析 ${remaining} 秒後自動繼續行車`:`作答剩餘 ${remaining} 秒 · 時間到自動公布`;
+ if(!q.revealed&&deadline&&Date.now()>=deadline)document.querySelectorAll('#qOpts button').forEach(b=>b.disabled=true)
+}
+function handleGlobalQuestion(q){
+ if(StudentV8.finished()||!q||q.closed){$('qModal').classList.add('hidden');if(!q)currentQuestionId='';stopQuestionCountdown();return}
+ currentQuestionId=q.id;latestGlobalQuestion=q;$('qModal').classList.remove('hidden');
+ $('accInfo').textContent=q.accidentSummary||'';$('qPrompt').textContent=q.prompt||'';
+ const answer=q.answers&&q.answers[uid],expired=Number(q.answerDeadlineAt)>0&&Date.now()>=Number(q.answerDeadlineAt);
+ $('qOpts').innerHTML=(q.options||[]).map((o,i)=>`<button data-i="${i}" class="${answer&&Number(answer.option)===i?'picked ':''}${q.revealed&&i===Number(q.correctIndex)?'correct':''}" ${(answeredQuestionId===q.id||answer||q.revealed||expired)?'disabled':''}>${String.fromCharCode(65+i)}. ${safeQuestionText(o)}</button>`).join('');
+ $('answerWait').classList.toggle('hidden',!answer&&answeredQuestionId!==q.id&&!q.revealed);
+ if(answer||answeredQuestionId===q.id)$('answerWait').textContent='已送出，時間到自動公布。';
+ document.querySelectorAll('#qOpts button').forEach(b=>b.onclick=async()=>{
+  const live=latestGlobalQuestion;if(!live||live.id!==q.id||live.closed||live.revealed||answeredQuestionId===q.id||(Number(live.answerDeadlineAt)>0&&Date.now()>=Number(live.answerDeadlineAt)))return;
+  answeredQuestionId=q.id;document.querySelectorAll('#qOpts button').forEach(x=>{x.disabled=true;x.classList.toggle('picked',x===b)});$('answerWait').classList.remove('hidden');$('answerWait').textContent='已送出，時間到自動公布。';
+  try{await db.ref(`rooms/${room}/globalQuestion/answers/${uid}`).set({option:Number(b.dataset.i),name:$('nameInput').value.trim(),ts:firebase.database.ServerValue.TIMESTAMP})}
+  catch(error){if(latestGlobalQuestion?.id===q.id&&!latestGlobalQuestion.revealed){answeredQuestionId='';handleGlobalQuestion(latestGlobalQuestion);$('answerWait').classList.remove('hidden');$('answerWait').textContent='答案尚未送出，請在時間內重試。'}}
+ });
+ if(q.revealed){let msg=!answer?'本題未作答。':Number(answer.option)===Number(q.correctIndex)?'✅ 答對！':'❌ 答錯。';$('answerWait').classList.remove('hidden');$('answerWait').textContent=msg+' '+(q.explanation||'')}
+ updateQuestionCountdown();if(!questionCountdownTimer)questionCountdownTimer=setInterval(updateQuestionCountdown,250)
+}
 renderColors();StudentV8.mount();init().catch(error=>{$('joinMsg').textContent='連線失敗，請檢查網路後重新整理。';$('joinMsg').classList.remove('hidden');$('joinBtn').disabled=true;console.error(error)});

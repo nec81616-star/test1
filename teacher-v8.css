@@ -11,3 +11,7 @@
 .v8Report caption{padding:12px;text-align:left;font-weight:900;background:#eaf4ff}
 .car.incident .boom{display:block}.car.incident .sprite{filter:grayscale(.65)}
 @media(max-width:680px){.v8Controls{padding:10px}.v8Controls button{flex:1}.v8Controls select{max-width:100%;width:100%}}
+
+.autoQuizStatus{display:inline-block;border:3px solid #2760a3;border-radius:12px;padding:10px 14px;background:#fff5c9;color:#17375b;font-weight:900}.rank .wealth{font-size:17px;min-width:100px;white-space:nowrap}.v8Report{overflow-x:auto}.v8Report td,.v8Report th{white-space:nowrap}
+
+.roundClockStatus{display:inline-block;border:3px solid #946b12;border-radius:12px;padding:10px 14px;background:#fffaf0;color:#644900;font-weight:900}
