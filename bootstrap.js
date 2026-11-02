@@ -11,11 +11,12 @@
     document.body.appendChild(script);
   });
   try {
-    await load('firebase-config.js?v=810');
-    await load('game-data.js?v=810');
-    await load('risk-engine.js?v=810');
+    await load('firebase-config.js?v=830');
+    await load('game-data.js?v=830');
+    await load('risk-engine.js?v=830');
+    if (page === 'teacher') await load('question-bank.js?v=830');
     if (demo) {
-      await load('local-backend.js?v=810');
+      await load('local-backend.js?v=830');
       const banner = document.createElement('div');
       banner.className = 'demoBanner';
       banner.setAttribute('role', 'status');
@@ -41,10 +42,10 @@
       for (const sdk of ['app', 'auth', 'database'])
         await load(`https://www.gstatic.com/firebasejs/10.12.5/firebase-${sdk}-compat.js`);
     }
-    if (page === 'student') await load('student-v8.js?v=810');
-    await load(page + '-core.js?v=810');
+    if (page === 'student') await load('student-v8.js?v=830');
+    await load(page + '-core.js?v=830');
     if (page === 'teacher') {
-      await load('teacher-v8.js?v=810');
+      await load('teacher-v8.js?v=830');
       if (!demo) load('https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js').catch(() => {
         // Invitations still display the complete URL when QR rendering is unavailable.
       });

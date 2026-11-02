@@ -7,7 +7,7 @@
   let lastRouteSync = 0;
   let practiceNumber = 0;
   let continuing = false;
-  let quizTimer = null, revealTimer = null, resumeTimer = null, countdownTimer = null;
+  let quizTimer = null, statusTimer = null;
   let quizStarting = false, revealing = false, activeQuizId = '', quizDelayMs = 0;
   const ROUND_DURATION_MS = 300000;
   let roundTimer = null, roundRemaining = ROUND_DURATION_MS, roundStartedAt = null;
@@ -21,7 +21,7 @@
   controls.innerHTML = '<span id="roundClockStatus" class="roundClockStatus" role="status">⏱️ 本局行車 5:00｜答題暫停計時</span><span id="autoQuizStatus" class="autoQuizStatus" role="status">📚 發車後每25～30秒自動出題</span><button id="classCaseBtn" hidden disabled>📚 全班案例演練</button>' +
     '<select id="practicePlayer" aria-label="選擇處置演練學生"><option value="">選擇處置演練學生</option></select>' +
     '<button id="personalPracticeBtn" disabled>🧰 指定學生處置演練</button>' +
-    '<small>學生自主選路；只有事故當事人停車。指定演練不計事故、不扣虛擬金；全班題自動出現、公布與繼續。</small>';
+    '<small>學生自主選路；只有事故當事人停車。指定演練不計事故、不扣虛擬金；全班題自動出現；公布答案與繼續行車由老師決定。</small>';
   document.querySelector('.hostControlBar').after(controls);
   document.querySelector('.finalBtns').before(Object.assign(document.createElement('div'), { id: 'financialReport', className: 'v8Report' }));
 
@@ -96,14 +96,15 @@
     return true;
   };
 
-  window.beginPersonalIncident = async function(id, kind = 'collision', practice = false) {
+  window.beginPersonalIncident = async function(id, kind = 'collision', practice = false, options = {}) {
     const actor = sim[id];
     const player = players[id];
     if (!running || paused || !roomRef || !actor || !player?.ready || actor.status !== 'driving' || player.status !== 'driving' || actor.arrivalBusy) return false;
     const ref = roomRef, generation = roundSerial;
     actor.status = 'incident';
-    const incident = Engine.createIncident(`incident_${Date.now()}_${++practiceNumber}`, kind, player);
+    const incident = Engine.createIncident(`incident_${Date.now()}_${++practiceNumber}`, kind, player, options);
     incident.practice = !!practice;
+    incident.insuranceInspection = { checked: false };
     if (practice) incident.title = '🧰 現場處置演練（不計事故、不扣款）';
     incident.startedAt = Date.now();
     try {
@@ -146,15 +147,46 @@
         let answer = request.action === 'settle'
           ? Engine.settleAuto(incident, actor.lockedPlan || 'basic')
           : Engine.act(incident, request.action);
-        if (answer.ok && answer.incident.stage === 'claim') answer = Engine.settleAuto(answer.incident, actor.lockedPlan || 'basic');
-        const updated = { ...(answer.incident || incident), feedback: answer.message || '', lastActionId: request.id };
+        let updated = { ...(answer.incident || incident) };
+        let wallet = player.wallet || Engine.newWallet(actor.lockedPlan || 'basic', actor.lockedRole);
+        let fineCharged = false;
+        // The police check belongs to this accident, not to a random roadside
+        // timer or classroom quiz. The same atomic player transaction stores
+        // the check and its one-time fine, so retries cannot charge it again.
+        if (answer.ok && !updated.insuranceInspection?.checked &&
+            (request.action === 'call' || ['claim', 'settled'].includes(updated.stage))) {
+          const inspection = Engine.inspectionFor(actor.lockedPlan || 'basic', !!incident.practice);
+          updated.insuranceInspection = inspection;
+          if (inspection.fine > 0) {
+            wallet = { ...wallet,
+              balance: Number(wallet.balance) - inspection.fine,
+              totalFines: Number(wallet.totalFines || 0) + inspection.fine,
+            };
+            fineCharged = true;
+          }
+          if (request.action === 'call') answer.message = inspection.note;
+        }
+        if (answer.ok && updated.stage === 'claim') {
+          answer = Engine.settleAuto(updated, actor.lockedPlan || 'basic');
+          updated = { ...(answer.incident || updated) };
+        }
+        updated.feedback = answer.message || '';
+        updated.lastActionId = request.id;
         const output = { ...player, incident: updated, actionRequest: null };
+        if (fineCharged) output.wallet = wallet;
+        if (answer.ok && request.action === 'call' && updated.insuranceInspection?.checked) {
+          output.currentEvent = updated.feedback;
+        }
         if (answer.ok && updated.stage === 'settled' && answer.settlement) {
-          const settlement = answer.settlement;
-          const wallet = player.wallet || Engine.newWallet(actor.lockedPlan || 'basic', actor.lockedRole);
+          const fine = Number(updated.insuranceInspection?.fine || 0);
+          const settlement = { ...answer.settlement, fine,
+            totalDeduction: Number(answer.settlement.outOfPocket || 0) + fine };
+          output.incident.settlement = settlement;
           if (incident.practice) {
             output.incident.feedback = '演練完成。以下為模擬結算，本次不扣款、不計事故。';
           } else {
+            // Any uninsured fine was already charged during the police call.
+            // Only compensation is charged here; preserve the prior fine ledger.
             output.wallet = { ...wallet,
               balance: Number(wallet.balance) - Number(settlement.outOfPocket || 0),
               totalOutOfPocket: Number(wallet.totalOutOfPocket || 0) + Number(settlement.outOfPocket || 0),
@@ -162,7 +194,8 @@
             };
           }
           output.status = 'driving';
-          output.lastFeedback = incident.practice ? '✅ 處置演練完成，已恢復行車（不扣款）' : `✅ 現場與理賠處理完成，自付 ${cash(settlement.outOfPocket)}；已恢復行車`;
+          output.lastFeedback = incident.practice ? '✅ 處置演練完成，已恢復行車（不扣款）' :
+            `✅ 事故處理完成：自付 ${cash(settlement.outOfPocket)}${fine ? `、未投保模擬罰款 ${cash(fine)}` : ''}；已恢復行車`;
           output.currentEvent = output.lastFeedback;
           output.speed = Math.min(Number(player.speed || 0), drivingScoreRange(currentEnvironment)?.max || 40);
         }
@@ -181,6 +214,40 @@
       if (running && players[id]?.actionRequest) setTimeout(() => processAction(id), 80);
     }
   }
+  // An unresolved accident is still a financial liability. Closing the round
+  // settles it without inventing completed safety actions or a second fine.
+  window.settleOpenIncidentsAtEnd = async function(ref, generation) {
+    const valid = () => ref === roomRef && generation === roundSerial && !running;
+    const snapshot = await ref.child('players').once('value');
+    if (!valid()) return;
+    await Promise.all(Object.entries(snapshot.val() || {}).map(async ([id, initial]) => {
+      if (!initial.ready || !initial.incident || initial.incident.practice || initial.incident.stage === 'settled') return;
+      const lockedPlan = sim[id]?.lockedPlan || Engine.planFor(initial.insurancePlan).id;
+      const lockedRole = sim[id]?.lockedRole || Engine.roleFor(initial.roleId).id;
+      await ref.child(`players/${id}`).transaction(player => {
+        if (!valid() || !player?.ready || !player.incident || player.incident.practice || player.incident.stage === 'settled') return;
+        const incident = player.incident;
+        const alreadyChecked = !!incident.insuranceInspection?.checked;
+        const inspection = alreadyChecked ? incident.insuranceInspection : Engine.inspectionFor(lockedPlan, false);
+        const result = Engine.settleAuto({ ...incident, stage: 'claim', insuranceInspection: inspection }, lockedPlan);
+        if (!result.ok) throw new Error('局末事故清算失敗：' + result.message);
+        const newFine = alreadyChecked ? 0 : Number(inspection.fine || 0);
+        const fine = Number(inspection.fine || 0);
+        const settlement = { ...result.settlement, fine, totalDeduction: result.settlement.outOfPocket + fine };
+        const wallet = player.wallet || Engine.newWallet(lockedPlan, lockedRole);
+        return { ...player, actionRequest: null,
+          incident: { ...result.incident, settlement,
+            sceneIncomplete: !incident.actions?.documents, closedByRoundEnd: true,
+            feedback: '本局結束：未完成的事故仍須結清損失與查驗罰款；現場處置保留原紀錄。' },
+          wallet: { ...wallet,
+            balance: Number(wallet.balance) - settlement.outOfPocket - newFine,
+            totalOutOfPocket: Number(wallet.totalOutOfPocket || 0) + settlement.outOfPocket,
+            totalFines: Number(wallet.totalFines || 0) + newFine,
+            insurancePaid: Number(wallet.insurancePaid || 0) + settlement.insurancePaid },
+        };
+      });
+    }));
+  };
   const oldWatchRoom = watchRoom;
   watchRoom = function() {
     oldWatchRoom();
@@ -205,19 +272,28 @@
       }
     }
   };
+  function routeIncidentProbability(player, actor) {
+    const route = actor.routeMode || routeId(player.routeChoice);
+    let probability = route === 'shortcut' ? .20 : route === 'school' ? .09 : .14;
+    if (currentEnvironment?.weatherKey === 'rainy') probability *= 1.35;
+    if (isTaskSpeedOnTarget(player)) probability *= .75;
+    return Math.min(.40, probability);
+  }
   function checkRouteHazards(now) {
-    if (now - lastHazardScan < 15000) return;
+    if (!running || paused || !roomRef || now - lastHazardScan < 15000) return;
     lastHazardScan = now;
-    for (const [id, p] of Object.entries(players)) {
+    for (const [id, player] of Object.entries(players)) {
       const actor = sim[id];
-      if (!actor || actor.status !== 'driving' || Number(p.speed || 0) <= 0 || now < (actor.incidentCooldownUntil || 0)) continue;
-      const route = actor.routeMode || routeId(p.routeChoice);
-      let probability = route === 'shortcut' ? .12 : route === 'school' ? .025 : .055;
-      if (currentEnvironment?.weatherKey === 'rainy') probability *= 1.5;
-      if (isTaskSpeedOnTarget(p)) probability *= .65;
-      if (Math.random() < probability) beginPersonalIncident(id, 'collision');
+      if (!actor || actor.status !== 'driving' || player.status !== 'driving' || actor.arrivalBusy || Number(player.speed || 0) <= 0 ||
+          now < (actor.incidentCooldownUntil || 0) || now < (actor.pauseUntil || 0) || now < (actor.boundaryWait || 0)) continue;
+      // Lawful speed reduces risk; it cannot remove road hazards entirely.
+      // The chosen insurance never participates in this probability.
+      if (Math.random() < routeIncidentProbability(player, actor))
+        beginPersonalIncident(id, Math.random() < .55 ? 'self' : 'collision');
     }
   }
+  window.RoadRiskV83 = Object.freeze({ scan: checkRouteHazards,
+    probabilityFor: id => players[id] && sim[id] ? routeIncidentProbability(players[id], sim[id]) : 0 });
   function syncRouteInfo(now) {
     if (!roomRef || now - lastRouteSync < 4000) return;
     lastRouteSync = now;
@@ -261,13 +337,13 @@
     $('ranking').innerHTML = list.map(([id, p], i) => {
       const wallet = p.wallet;
       const mode = Engine.ROUTES[routeId(p.routeChoice)];
-      return `<div class="rank"><div class="no">${i + 1}</div><div><b>${safeText(p.name || '玩家')}</b><small>${safeText(mode.name)} · ${Number(p.speed || 0)} km/h</small><span class="missionMeta">📍 ${Number(p.visitCount || 0)} 站 · ${Number(p.completedRuns || 0)} 趟</span><span class="v8Money">${wallet ? `財產 ${cash(wallet.balance)}｜事故自付 ${cash(wallet.totalOutOfPocket)}` : '出發前配置保障'}${p.status === 'incident' ? '<br><span class="v8Incident">🧰 正在處理現場</span>' : ''}</span></div><div class="score wealth">${cash(Engine.getWealth(p))}</div></div>`;
+      return `<div class="rank"><div class="no">${i + 1}</div><div><b>${safeText(p.name || '玩家')}</b><small>${safeText(mode.name)} · ${Number(p.speed || 0)} km/h</small><span class="missionMeta">📍 ${Number(p.visitCount || 0)} 站 · ${Number(p.completedRuns || 0)} 趟</span><span class="v8Money">${wallet ? `財產 ${cash(wallet.balance)}｜事故自付 ${cash(wallet.totalOutOfPocket)}｜罰款 ${cash(wallet.totalFines)}` : '出發前配置保障'}${p.status === 'incident' ? '<br><span class="v8Incident">🧰 正在處理現場</span>' : ''}</span></div><div class="score wealth">${cash(Engine.getWealth(p))}</div></div>`;
     }).join('');
     $('mAcc').textContent = Object.values(players).filter(p => p.status === 'incident' && !p.incident?.practice).length;
     $('createBtn').disabled = running || starting || roomMutationPending;
     $('resetBtn').disabled = !roomRef || starting || roomMutationPending;
     $('startBtn').disabled = running || starting || roomMutationPending || !list.length || Object.values(players).some(p => !p.ready || p.status !== 'ready');
-    $('mapStatus').textContent = !running && list.some(([, p]) => p.status === 'finished') ? '🏁 本局結束｜查看風險管理帳本' : paused ? '📚 自動出題中｜倒數結束後自動行車' : running ? `自主選路｜任務進行中｜實際事故 ${accidentsThisRound} 起` : '等待老師發車';
+    $('mapStatus').textContent = !running && list.some(([, p]) => p.status === 'finished') ? '🏁 本局結束｜查看風險管理帳本' : paused ? '📚 全班答題／講解中｜由老師決定繼續行車' : running ? `自主選路｜任務進行中｜實際事故 ${accidentsThisRound} 起` : '等待老師發車';
     $('classCaseBtn').disabled = true;
     $('personalPracticeBtn').disabled = !running || paused || !$('practicePlayer').value || sim[$('practicePlayer').value]?.status !== 'driving';
     const selected = $('practicePlayer').value;
@@ -283,9 +359,9 @@
 
   const quizValid = (ref, generation) => ref === roomRef && generation === roundSerial && running;
   function clearQuizTimers() {
-    for (const timer of [quizTimer, revealTimer, resumeTimer]) clearTimeout(timer);
-    clearInterval(countdownTimer);
-    quizTimer = revealTimer = resumeTimer = countdownTimer = null;
+    clearTimeout(quizTimer);
+    clearInterval(statusTimer);
+    quizTimer = statusTimer = null;
   }
   function currentRoundRemaining() {
     return Math.max(0, roundRemaining - (roundStartedAt === null ? 0 : Date.now() - roundStartedAt));
@@ -316,9 +392,9 @@
     if (!label) return;
     if (!running) { label.textContent = '📚 發車後每25～30秒自動出題'; return; }
     if (paused && currentQuestion && !currentQuestion.closed) {
-      const deadline = currentQuestion.revealed ? currentQuestion.resumeAt : currentQuestion.answerDeadlineAt;
-      const seconds = Math.max(0, Math.ceil((Number(deadline || Date.now()) - Date.now()) / 1000));
-      label.textContent = currentQuestion.revealed ? `📚 解析 ${seconds} 秒後自動行車` : `📚 作答倒數 ${seconds} 秒`;
+      label.textContent = currentQuestion.revealed
+        ? '📚 老師講解中｜按「繼續行車」才會關閉'
+        : '📚 等待學生作答｜老師決定何時公布答案';
     } else {
       label.textContent = `📚 ${Math.max(0, Math.ceil((nextQuestionAt - Date.now()) / 1000))} 秒後自動出題`;
     }
@@ -334,7 +410,7 @@
     quizDelayMs = 25000 + Math.floor(Math.random() * 5001);
     nextQuestionAt = Date.now() + quizDelayMs;
     quizTimer = setTimeout(() => beginClassQuestion(ref, generation), quizDelayMs);
-    countdownTimer = setInterval(renderQuizClock, 250); renderQuizClock();
+    statusTimer = setInterval(renderQuizClock, 250); renderQuizClock();
   };
   async function beginClassQuestion(ref = roomRef, generation = roundSerial) {
     if (!quizValid(ref, generation) || paused || quizStarting) return false;
@@ -350,14 +426,12 @@
       const victims = [victimRecord(first)];
       if (playerCase) victims.push(victimRecord(ready[1]));
       const q = buildQuestion({ kind, meta: { kind, playerCauses: !hitRun, hitRun, pattern: 'cross' }, victims });
-      q.practice = true; q.autoMode = true;
-      q.answerDeadlineAt = Date.now() + 12000; q.resumeAt = q.answerDeadlineAt + 4000;
+      q.practice = true; q.autoMode = true; q.teacherControlled = true;
       q.accidentSummary = '📚 定時全班題：本題不計事故、不影響財產。\n' + q.accidentSummary;
       activeQuizId = q.id;
       await ref.update({ status: 'question', globalQuestion: q });
       if (!quizValid(ref, generation) || activeQuizId !== q.id) return false;
-      if (!countdownTimer) countdownTimer = setInterval(renderQuizClock, 250);
-      revealTimer = setTimeout(() => revealClassQuestion(ref, generation, q.id), Math.max(0, q.answerDeadlineAt - Date.now()));
+      if (!statusTimer) statusTimer = setInterval(renderQuizClock, 250);
       renderQuizClock(); return true;
     } catch (error) {
       if (quizValid(ref, generation)) { paused = false; startEnvironmentCycle(); startQuestionClock(); resumeRoundClock(); }
@@ -367,28 +441,14 @@
   const originalReveal = $('revealBtn').onclick;
   async function revealClassQuestion(ref = roomRef, generation = roundSerial, questionId = activeQuizId) {
     if (!quizValid(ref, generation) || !paused || revealing || activeQuizId !== questionId || currentQuestion?.id !== questionId || currentQuestion.closed) return;
-    revealing = true; clearTimeout(revealTimer); revealTimer = null;
+    revealing = true;
     try {
       if (!currentQuestion.revealed) await originalReveal();
       if (!quizValid(ref, generation) || activeQuizId !== questionId) return;
-      const snapshot = await ref.child('globalQuestion').once('value');
-      if (!quizValid(ref, generation) || activeQuizId !== questionId || snapshot.val()?.id !== questionId || snapshot.val().closed) return;
-      if (!snapshot.val().revealed) {
-        revealTimer = setTimeout(() => revealClassQuestion(ref, generation, questionId), 1000);
-        return;
-      }
-      const resumeAt = Date.now() + 4000;
-      const resumed = await ref.child('globalQuestion').transaction(question => {
-        if (!quizValid(ref, generation) || activeQuizId !== questionId || question?.id !== questionId || !question.revealed || question.closed) return;
-        return { ...question, resumeAt };
-      });
-      if (!resumed.committed) return;
-      if (!quizValid(ref, generation) || activeQuizId !== questionId) return;
-      resumeTimer = setTimeout(() => continueClassQuestion(ref, generation, questionId), 4000);
+      // The explanation remains open until the teacher explicitly continues.
       renderQuizClock();
     } catch (error) {
-      console.error('自動公布失敗', error);
-      if (quizValid(ref, generation) && activeQuizId === questionId) revealTimer = setTimeout(() => revealClassQuestion(ref, generation, questionId), 1000);
+      console.error('公布答案失敗，請重新按公布答案', error);
     } finally { revealing = false; }
   }
   async function continueClassQuestion(ref = roomRef, generation = roundSerial, questionId = activeQuizId) {
@@ -404,29 +464,28 @@
       announce('🚦 繼續工作賺錢！下題將在行車25～30秒後自動出現。');
       for (const [id, player] of Object.entries(players)) if (player.actionRequest) processAction(id);
     } catch (error) {
-      console.error('自動恢復行車失敗', error);
-      if (quizValid(ref, generation) && activeQuizId === questionId) resumeTimer = setTimeout(() => continueClassQuestion(ref, generation, questionId), 1000);
+      console.error('恢復行車失敗，請重新按繼續行車', error);
     } finally { continuing = false; if (ref === roomRef && generation === roundSerial) $('continueBtn').disabled = false; }
   }
   $('classCaseBtn').onclick = () => beginClassQuestion();
   $('revealBtn').onclick = () => revealClassQuestion();
   $('continueBtn').onclick = () => continueClassQuestion();
-  window.ClassQuizV81 = Object.freeze({ trigger: () => beginClassQuestion(),
+  window.ClassQuizV83 = window.ClassQuizV81 = Object.freeze({ trigger: () => beginClassQuestion(),
     get nextDelayMs() { return quizDelayMs; }, get nextQuestionAt() { return nextQuestionAt; },
     get roundRemainingMs() { return currentRoundRemaining(); }, roundDurationMs: ROUND_DURATION_MS });
   const oldRenderQuestion = renderQuestion;
   renderQuestion = function() {
     oldRenderQuestion();
     document.querySelector('#qOverlay h2').textContent = '📚 定時全班題';
-    $('revealBtn').textContent = '提前公布'; $('continueBtn').textContent = '提前行車';
+    $('revealBtn').textContent = '公布答案'; $('continueBtn').textContent = '繼續行車';
     renderQuizClock();
   };
   const oldShowFinal = showFinalPodium;
   showFinalPodium = function() {
     oldShowFinal();
-    $('financialReport').innerHTML = '<table><caption>本局風險管理帳本（虛擬金）</caption><thead><tr><th>學生</th><th>初始財產</th><th>任務收入</th><th>保費</th><th>保險承擔</th><th>事故自付</th><th>剩餘資金</th></tr></thead><tbody>' + scoreRank().map(([, p]) => {
+    $('financialReport').innerHTML = '<table><caption>本局風險管理帳本（虛擬金）</caption><thead><tr><th>學生</th><th>初始財產</th><th>任務收入</th><th>保費</th><th>保險承擔</th><th>事故自付</th><th>未投保模擬罰款</th><th>剩餘資金</th></tr></thead><tbody>' + scoreRank().map(([, p]) => {
       const w = p.wallet || {};
-      return `<tr><td>${safeText(p.name || '玩家')}</td><td>${cash(w.initialAssets)}</td><td>${cash(w.missionIncome)}</td><td>${cash(w.premium)}</td><td>${cash(w.insurancePaid)}</td><td>${cash(w.totalOutOfPocket)}</td><td>${cash(w.balance)}</td></tr>`;
+      return `<tr><td>${safeText(p.name || '玩家')}</td><td>${cash(w.initialAssets)}</td><td>${cash(w.missionIncome)}</td><td>${cash(w.premium)}</td><td>${cash(w.insurancePaid)}</td><td>${cash(w.totalOutOfPocket)}</td><td>${cash(w.totalFines)}</td><td>${cash(w.balance)}</td></tr>`;
     }).join('') + '</tbody></table>';
   };
 

@@ -6,13 +6,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
   const START_BUDGET = 10000;
+  const UNINSURED_FINE = 3000; // Game currency; not a statutory fine schedule.
   const PLANS = Object.freeze({
-    basic: Object.freeze({ id: 'basic', name: '基本保障', premium: 0, thirdPartyLimit: 0, ownLimit: 0,
-      description: '已含強制險基本人身保障；第三人財損與自己車損留用備用金負擔。' }),
-    liability: Object.freeze({ id: 'liability', name: '保對方', premium: 1200, thirdPartyLimit: 30000, ownLimit: 0,
-      description: '基本保障＋第三人財損保障；自己的修車費仍需自行負擔。' }),
-    complete: Object.freeze({ id: 'complete', name: '保雙方', premium: 2800, thirdPartyLimit: 30000, ownLimit: 15000,
-      description: '基本保障＋第三人財損＋自己車損保障；出發時可用資金較少。' }),
+    uninsured: Object.freeze({ id: 'uninsured', name: '不投保（違規）', premium: 0, compulsory: false, thirdPartyLimit: 0, ownLimit: 0, ownMedicalLimit: 0,
+      description: '省保費；事故處理時查驗未投保，扣模擬罰款，損失仍需自行負擔。' }),
+    basic: Object.freeze({ id: 'basic', name: '只保強制險', premium: 600, compulsory: true, thirdPartyLimit: 0, ownLimit: 0, ownMedicalLimit: 0,
+      description: '提供符合條件的人身保障，不賠車損與財物損失。' }),
+    complete: Object.freeze({ id: 'complete', name: '強制＋商業', premium: 1800, compulsory: true, thirdPartyLimit: 30000, ownLimit: 15000, ownMedicalLimit: 20000,
+      description: '本教學方案含強制險、第三人財損、自己車損及另列的駕駛人傷害保障。' }),
   });
   // Calibrated against 300s of active driving over all 12 map spawn slots.
   // Lower starting wealth trades off against faster work and higher earnings.
@@ -41,24 +42,58 @@
     const plan = planFor(planId);
     const role = roleFor(roleId);
     return { initialAssets: role.startingWealth, balance: role.startingWealth - plan.premium, premium: plan.premium,
-      totalOutOfPocket: 0, missionIncome: 0, insurancePaid: 0 };
+      totalOutOfPocket: 0, totalFines: 0, missionIncome: 0, insurancePaid: 0 };
+  }
+  function inspectionFor(planId, practice = false) {
+    const hasCompulsory = planFor(planId).compulsory;
+    const simulatedFine = hasCompulsory ? 0 : UNINSURED_FINE;
+    const fine = practice ? 0 : simulatedFine;
+    return { checked: true, hasCompulsory, violation: !hasCompulsory, fine, simulatedFine,
+      note: hasCompulsory ? '事故查驗：已投保強制險，沒有未投保罰款。'
+        : practice ? '演練查驗：未投保強制險；正式事故將扣模擬罰款，本次不扣款。'
+          : `事故查驗：未投保強制險，扣模擬罰款 $${UNINSURED_FINE.toLocaleString()}。` };
   }
   function getWealth(player) {
     const value = player?.wallet?.balance;
     return typeof value === 'number' && Number.isFinite(value)
       ? value : newWallet(player?.insurancePlan, player?.roleId).balance;
   }
-  function createIncident(id, kind, player) {
-    const solo = kind === 'overspeed';
-    return { id: String(id), kind: solo ? 'overspeed' : 'collision',
-      title: solo ? '超速擦撞護欄' : '路口碰撞：處理現場與損失',
+  const LOSS_TYPES = Object.freeze({
+    medical: '對方人損', ownMedical: '我方人損', thirdParty: '對方財損', ownDamage: '我方財損',
+  });
+  function createIncident(id, kind, player, options = {}) {
+    const rng = typeof options.rng === 'function' ? options.rng : Math.random;
+    const draw = () => {
+      const value = Number(rng());
+      return Number.isFinite(value) ? Math.max(0, Math.min(1 - Number.EPSILON, value)) : .5;
+    };
+    const keys = Object.keys(LOSS_TYPES);
+    const mask = 1 + Math.floor(draw() * 15);
+    const lossTypes = options.lossKeys === undefined
+      ? keys.filter((key, index) => mask & (1 << index))
+      : keys.filter(key => options.lossKeys.includes(key));
+    if (!lossTypes.length) throw new Error('事故至少需要一類有效損失。');
+    const amounts = {};
+    const ranges = { medical: [1000, 500, 5], ownMedical: [1500, 500, 6],
+      thirdParty: [1000, 500, 6], ownDamage: player?.vehicleType === 'moto' ? [500, 250, 9] : [1000, 500, 7] };
+    for (const key of keys) {
+      if (!lossTypes.includes(key)) { amounts[key] = 0; continue; }
+      const [minimum, step, count] = ranges[key];
+      const value = options.amounts?.[key] ?? minimum + step * Math.floor(draw() * count);
+      if (!Number.isSafeInteger(value) || value <= 0) throw new Error('事故損失必須是正整數。');
+      amounts[key] = value;
+    }
+    const incidentKind = ['overspeed', 'self'].includes(kind) ? kind : 'collision';
+    const otherAffected = amounts.medical > 0 || amounts.thirdParty > 0;
+    const cause = incidentKind === 'overspeed' ? '車速過快失控'
+      : incidentKind === 'self' ? '行經路面異物，突發打滑偏離原路線' : '通行時發生碰撞';
+    return { id: String(id), kind: incidentKind,
+      title: incidentKind === 'overspeed' ? '超速失控事故' : incidentKind === 'self' ? '突發自失控事故' : '路口碰撞事故',
       stage: 'scene', actions: {}, feedback: '先確認現場安全，再查看傷者與通報。',
-      medical: solo ? 0 : 2000, thirdParty: solo ? 1500 : 3000,
-      ownDamage: player?.vehicleType === 'moto' ? 1500 : 3500,
-      context: solo
-        ? '本次模擬無人受傷；護欄為第三人財物，自己的車損須另行處理。'
-        : '本案例假設你對碰撞負賠償責任，對方傷者符合強制險醫療給付條件，且各項損失符合選定任意保障的承保條件。',
-      learningNote: '金額與保費為遊戲設定。實際給付依法律、事故責任及契約條件判斷。',
+      ...amounts, lossTypes,
+      sceneSummary: `${cause}，${otherAffected ? '波及他人或他人財物' : '未波及第三人'}。本次損失：${lossTypes.map(key => LOSS_TYPES[key]).join('、')}。`,
+      context: '本案例以我方應負費用作教學結算，假設所列對方損失有應負的賠償責任。自己的強制險不給付單車自撞駕駛本人的傷害；第三方案另列駕駛人傷害保障。若涉及對方車輛、其他保險或法定補償，仍須另外判斷請求途徑，本帳本不另計那些給付。',
+      learningNote: '保費與損失為遊戲設定。第三方案的駕駛人傷害保障為明列的教學組合，不代表所有商業險都含這項保障；實際依法律、身分、責任及契約條件判斷。',
     };
   }
   function copy(value) { return JSON.parse(JSON.stringify(value)); }
@@ -90,13 +125,14 @@
     if (incident.stage !== 'claim') return reject(incident.stage === 'settled' ? '本次事件已結算，不能重複請款。' : '請先完成安全、通報、蒐證與文件整理。');
     const plan = planFor(planId);
     const items = [
-      { key: 'medical', label: '對方傷者醫療', source: 'compulsory', limit: 200000, available: true },
+      { key: 'medical', label: '對方傷者醫療', source: 'compulsory', limit: 200000, available: plan.compulsory },
+      { key: 'ownMedical', label: '我方駕駛人傷害', source: 'driver', limit: plan.ownMedicalLimit, available: plan.ownMedicalLimit > 0 },
       { key: 'thirdParty', label: '第三人財物損害', source: 'liability', limit: plan.thirdPartyLimit, available: plan.thirdPartyLimit > 0 },
       { key: 'ownDamage', label: '自己車輛修復', source: 'own', limit: plan.ownLimit, available: plan.ownLimit > 0 },
     ];
     const lines = [];
     for (const item of items) {
-      const amount = input[item.key];
+      const amount = item.key === 'ownMedical' && input.ownMedical === undefined ? 0 : input[item.key];
       if (typeof amount !== 'number' || !Number.isSafeInteger(amount) || amount < 0) return reject('損失資料不完整，請老師協助檢查。');
       let source = allocations?.[item.key];
       if (!amount) source = 'self';
@@ -118,10 +154,11 @@
   function settleAuto(incident, planId) {
     const plan = planFor(planId);
     return settle(incident, plan.id, {
-      medical: 'compulsory',
+      medical: plan.compulsory ? 'compulsory' : 'self',
+      ownMedical: plan.ownMedicalLimit > 0 ? 'driver' : 'self',
       thirdParty: plan.thirdPartyLimit > 0 ? 'liability' : 'self',
       ownDamage: plan.ownLimit > 0 ? 'own' : 'self',
     });
   }
-  return Object.freeze({ VERSION: '8.1', START_BUDGET, PLANS, ROUTES, ROLES, ACTIONS, planFor, routeFor, roleFor, getWealth, newWallet, createIncident, act, settle, settleAuto });
+  return Object.freeze({ VERSION: '8.3', START_BUDGET, UNINSURED_FINE, PLANS, ROUTES, ROLES, LOSS_TYPES, ACTIONS, planFor, routeFor, roleFor, getWealth, newWallet, inspectionFor, createIncident, act, settle, settleAuto });
 });
