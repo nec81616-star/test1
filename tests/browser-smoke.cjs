@@ -230,7 +230,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
       await host.clock.fastForward(Math.max(1, timestamp - now + 10));
       await sleep(80); // let cross-tab storage events and locked transactions finish
     }
-    const firstClock = await host.evaluate(() => ({ now: Date.now(), next: ClassQuizV83.nextQuestionAt, delay: ClassQuizV83.nextDelayMs }));
+    const firstClock = await host.evaluate(() => ({ now: Date.now(), next: ClassQuizV84.nextQuestionAt, delay: ClassQuizV84.nextDelayMs }));
     assert.ok(firstClock.delay >= 25000 && firstClock.delay <= 30000);
     assert.ok(firstClock.next > firstClock.now);
     await advanceTo(firstClock.next - 20);
@@ -242,14 +242,37 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.equal(firstQuestion.practice, true);
     assert.equal(firstQuestion.answerDeadlineAt,undefined);
     assert.equal(firstQuestion.resumeAt,undefined);
+    assert.doesNotMatch(await host.locator('#qOverlay').innerText(),/NPC/);
+    assert.doesNotMatch(await student.locator('#qModal').innerText(),/NPC/);
+    assert.equal(await host.locator('#questionFontSize').inputValue(),'32');
+    await host.locator('#questionFontSize').fill('37');
+    await host.locator('#questionFontSize').dispatchEvent('change');
+    assert.equal(await host.locator('#qPrompt').evaluate(el=>getComputedStyle(el).fontSize),'37px');
+    await host.locator('#questionFontIncrease').click();
+    assert.equal(await host.locator('#questionFontSize').inputValue(),'39');
+    await host.locator('#questionFontDecrease').click();
+    assert.equal(await host.locator('#questionFontSize').inputValue(),'37');
+    assert.equal(await host.evaluate(()=>localStorage.getItem('cityInsuranceQuestionFontPx')),'37');
+    const fontCheck=await context.newPage();await fontCheck.goto(`${BASE}/teacher.html?demo=1`);
+    await eventually(fontCheck,()=>window.GAME_RUNTIME_READY&&window.TeacherQuestionFonts,null,'persisted projector font');
+    assert.equal(await fontCheck.locator('#questionFontSize').inputValue(),'37');await fontCheck.close();
+    await host.locator('#questionFontSize').fill('64');
+    await host.locator('#questionFontSize').dispatchEvent('change');
+    assert.equal(await host.locator('#qPrompt').evaluate(el=>getComputedStyle(el).fontSize),'64px');
+    assert.ok(await host.locator('#bars .track').evaluateAll(items=>items.every(el=>el.scrollHeight<=el.clientHeight+1)),'large answer labels must wrap without clipping');
+    await fs.mkdir(ARTIFACTS,{recursive:true});
+    await host.screenshot({path:path.join(ARTIFACTS,'teacher-question-large.png'),fullPage:true});
+    await host.locator('#questionFontReset').click();
+    assert.equal(await host.locator('#questionFontSize').inputValue(),'32');
+    console.log('PASS: classroom wording has no NPC and projector text size is adjustable, persistent and unclipped');
     const wealthBeforeQuiz = await host.evaluate(()=>Object.fromEntries(Object.entries(players).map(([key,p])=>[key,p.wallet.balance])));
-    const roundAtPause = await host.evaluate(() => ClassQuizV83.roundRemainingMs);
+    const roundAtPause = await host.evaluate(() => ClassQuizV84.roundRemainingMs);
     // Slow thinkers must still be able to answer long after the old 12s limit.
     await advanceTo(await host.evaluate(()=>Date.now()+120000));
     assert.equal(await host.evaluate(()=>currentQuestion.id),firstQuestion.id);
     assert.equal(await host.evaluate(()=>currentQuestion.revealed),false);
     assert.equal(await host.evaluate(()=>paused),true);
-    assert.equal(await host.evaluate(()=>ClassQuizV83.roundRemainingMs),roundAtPause);
+    assert.equal(await host.evaluate(()=>ClassQuizV84.roundRemainingMs),roundAtPause);
     assert.equal(await student.locator('#qOpts button').first().isDisabled(),false);
     assert.doesNotMatch(await student.locator('#qModal').innerText(),/倒數|作答剩餘|秒後自動/);
     await student.locator('#qOpts button').nth(firstQuestion.correctIndex).click();
@@ -261,13 +284,13 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.equal(await host.evaluate(()=>currentQuestion.id),firstQuestion.id);
     assert.equal(await host.evaluate(()=>currentQuestion.closed),false);
     assert.equal(await host.evaluate(()=>paused),true);
-    assert.equal(await host.evaluate(()=>ClassQuizV83.roundRemainingMs),roundAtPause);
+    assert.equal(await host.evaluate(()=>ClassQuizV84.roundRemainingMs),roundAtPause);
     assert.equal(await student.locator('#qModal').isVisible(),true);
     assert.deepEqual(await host.evaluate(()=>Object.fromEntries(Object.entries(players).map(([key,p])=>[key,p.wallet.balance]))),wealthBeforeQuiz,'quiz correctness never changes property');
     await host.locator('#continueBtn').click();
     await student.locator('#qModal').waitFor({state:'hidden'});
     await eventually(host,()=>!paused&&running,null,'teacher driving resume');
-    const secondAt=await host.evaluate(()=>ClassQuizV83.nextQuestionAt);
+    const secondAt=await host.evaluate(()=>ClassQuizV84.nextQuestionAt);
     assert.ok(secondAt-await host.evaluate(()=>Date.now())>=24900);
     await advanceTo(secondAt);
     await student.locator('#qModal').waitFor({state:'visible'});
@@ -279,6 +302,78 @@ async function eventually(page, predicate, argument, label = 'condition') {
     await host.locator('#continueBtn').click();
     await student.locator('#qModal').waitFor({state:'hidden'});
     console.log('PASS: 25–30s automatic questions allow long answers and explanations, with manual teacher reveal/resume');
+
+    assert.equal(await host.evaluate(async()=>(await roomRef.child('completedQuestions').once('value')).val()),2);
+    async function completeNextQuestion(label) {
+      const next=await host.evaluate(()=>ClassQuizV84.nextQuestionAt);
+      assert.ok(next>0);await advanceTo(next);
+      await student.locator('#qModal').waitFor({state:'visible'});
+      assert.doesNotMatch(await host.locator('#qOverlay').innerText(),/NPC/);
+      await host.locator('#revealBtn').click();
+      await eventually(host,()=>currentQuestion?.revealed,null,`${label} reveal`);
+      await host.locator('#continueBtn').click();
+      await student.locator('#qModal').waitFor({state:'hidden'});
+      await eventually(host,()=>currentQuestion?.closed,null,`${label} continue`);
+    }
+    await completeNextQuestion('third question');
+    await completeNextQuestion('fourth question');
+    assert.equal(await host.evaluate(async()=>(await roomRef.child('completedQuestions').once('value')).val()),4);
+    assert.equal(await host.locator('#policyRenewalOverlay').isVisible(),false,'policy does not expire before five completed questions');
+    // A current accident must keep its old commercial cover even if the next
+    // policy period is declined; the new choice affects future accidents only.
+    await startIncident(otherId);
+    const oldCoverage=await host.evaluate(id=>players[id].incident.coveragePlan,otherId);
+    assert.equal(oldCoverage,'complete');
+    await completeNextQuestion('fifth question');
+    await student.locator('#renewalModal').waitFor({state:'visible'});
+    const renewal=await host.evaluate(()=>PolicyRenewalV84.current);
+    assert.equal(renewal.completedQuestions,5);
+    assert.equal(await host.evaluate(()=>paused),true);
+    assert.equal(await host.evaluate(()=>ClassQuizV84.nextQuestionAt),0);
+    assert.equal(await student.locator('#confirmRenewal').isDisabled(),true,'a policy choice must be explicitly confirmed');
+    const renewalClock=await host.evaluate(()=>ClassQuizV84.roundRemainingMs);
+    const renewalBalances=await host.evaluate(()=>Object.fromEntries(Object.entries(players).map(([key,p])=>[key,p.wallet.balance])));
+    await advanceTo(await host.evaluate(()=>Date.now()+90000));
+    assert.equal(await host.evaluate(()=>ClassQuizV84.roundRemainingMs),renewalClock);
+    assert.deepEqual(await host.evaluate(()=>Object.fromEntries(Object.entries(players).map(([key,p])=>[key,p.wallet.balance]))),renewalBalances,'renewal waiting never charges automatically');
+    async function chooseRenewal(page,playerId,planId) {
+      const before=await host.evaluate(id=>players[id].wallet.balance,playerId);
+      await page.locator(`[data-renewal-plan="${planId}"]`).click();
+      const expected=await host.evaluate(({planId,remainingMs})=>RISK_GAME.premiumQuote(planId,remainingMs),{planId,remainingMs:renewal.remainingMs});
+      assert.equal(Number((await page.locator('#renewalFee').innerText()).replace(/[^\d.-]/g,'')),expected);
+      await page.locator('#confirmRenewal').click();
+      await eventually(host,({id,renewalId})=>players[id].renewalReceipt?.renewalId===renewalId,{id:playerId,renewalId:renewal.id},'renewal receipt');
+      assert.equal(await host.evaluate(id=>players[id].wallet.balance,playerId),before-expected);
+      assert.equal(await page.locator('#confirmRenewal').isDisabled(),true);
+      return expected;
+    }
+    const paidRenewal=await chooseRenewal(student,id,'complete');
+    await chooseRenewal(other,otherId,'uninsured');
+    await chooseRenewal(uninsured,uninsuredId,'uninsured');
+    const confirmedBalance=await host.evaluate(id=>players[id].wallet.balance,id);
+    await student.evaluate(async renewalId=>playerRef.child('renewalRequest').set({id:'duplicate-policy-payment',renewalId,planId:'basic'}),renewal.id);
+    await eventually(host,id=>!players[id].renewalRequest,id,'duplicate renewal acknowledgement');
+    assert.equal(await host.evaluate(id=>players[id].wallet.balance,id),confirmedBalance);
+    assert.equal(await host.evaluate(id=>players[id].insurancePlan,id),'complete','a repeated confirmation cannot replace already-paid coverage');
+    assert.equal(await host.evaluate(id=>players[id].wallet.premium,id),initial.office.premium+paidRenewal);
+    await host.locator('#finishRenewalBtn').click();
+    await eventually(host,()=>!paused&&running&&roomRef&&PolicyRenewalV84.current===null,null,'teacher renewal finish');
+    await student.locator('#renewalModal').waitFor({state:'hidden'});
+    assert.equal(await host.evaluate(id=>players[id].insurancePlan,pendingId),'uninsured','explicit teacher continuation defaults an unanswered player to uninsured');
+    assert.equal(await host.evaluate(id=>sim[id].lockedPlan,id),'complete');
+    assert.equal(await host.evaluate(id=>sim[id].lockedPlan,otherId),'uninsured');
+    await finishScene(other);
+    await eventually(host,id=>players[id].incident.stage==='settled',otherId,'old-coverage accident after renewal');
+    assert.equal(await host.evaluate(id=>players[id].incident.insuranceInspection.fine,otherId),0);
+    assert.equal(await host.evaluate(id=>players[id].incident.settlement.outOfPocket,otherId),0);
+    assert.equal(await host.evaluate(id=>players[id].incident.coveragePlan,otherId),'complete');
+    await startIncident(otherId);
+    assert.equal(await host.evaluate(id=>players[id].incident.coveragePlan,otherId),'uninsured');
+    await finishScene(other);
+    await eventually(host,id=>players[id].incident.stage==='settled',otherId,'new-coverage accident');
+    assert.equal(await host.evaluate(id=>players[id].incident.settlement.outOfPocket,otherId),8500);
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,otherId),3000);
+    console.log('PASS: five completed questions expire cover; renewal is explicit, charged once, paused and prospective only');
 
     await student.setViewportSize({ width: 390, height: 844 });
     assert.ok(await student.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -301,12 +396,22 @@ async function eventually(page, predicate, argument, label = 'condition') {
     // Let the actual active-work clock end the round, crossing any scheduled
     // automatically opened questions; teacher discussion does not consume work time.
     for (let i = 0; i < 40 && await host.evaluate(() => running); i++) {
-      const phase = await host.evaluate(() => ({ paused, now: Date.now(), next: ClassQuizV83.nextQuestionAt,
-        remaining: ClassQuizV83.roundRemainingMs, q: currentQuestion }));
-      if (phase.paused) {
+      const phase = await host.evaluate(() => ({ paused, now: Date.now(), next: ClassQuizV84.nextQuestionAt,
+        remaining: ClassQuizV84.roundRemainingMs, q: currentQuestion, renewal:PolicyRenewalV84.current }));
+      if(phase.renewal) {
+        const fee=await host.evaluate(remaining=>RISK_GAME.premiumQuote('basic',remaining),phase.renewal.remainingMs);
+        assert.ok(fee<250,'a short final period costs less than a full five-question period');
+        await student.locator('[data-renewal-plan="basic"]').click();
+        const before=await host.evaluate(id=>players[id].wallet.balance,id);
+        await student.locator('#confirmRenewal').click();
+        await eventually(host,({id,renewalId})=>players[id].renewalReceipt?.renewalId===renewalId,{id,renewalId:phase.renewal.id},'prorated final renewal');
+        assert.equal(await host.evaluate(id=>players[id].wallet.balance,id),before-fee);
+        await host.locator('#finishRenewalBtn').click();
+        await eventually(host,()=>!paused||!running,null,'final renewal resume');
+      } else if (phase.paused) {
         if(!phase.q.revealed){await host.locator('#revealBtn').click();await eventually(host,()=>currentQuestion?.revealed,null,'teacher reveal during round');}
         await host.locator('#continueBtn').click();
-        await eventually(host,()=>!paused||!running,null,'teacher resume during round');
+        await eventually(host,()=>!paused||!running||PolicyRenewalV84.current!==null,null,'teacher resume during round');
       } else {
         await advanceTo(Math.min(phase.next || Infinity, phase.now + phase.remaining));
       }
@@ -343,7 +448,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.match(await student.locator('#joinMsg').innerText(), /重設/);
     await host.clock.fastForward(60000);
     assert.equal(await host.evaluate(() => running), false);
-    assert.equal(await host.evaluate(() => ClassQuizV83.nextQuestionAt), 0);
+    assert.equal(await host.evaluate(() => ClassQuizV84.nextQuestionAt), 0);
     assert.deepEqual(errors, []);
     assert.deepEqual(remote, []);
     console.log('PASS: reset returns students to join; no timer resurrection, runtime errors or external requests');

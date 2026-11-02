@@ -159,11 +159,11 @@ test('the three insurance choices distinguish compulsory cover and property cove
   assert.deepEqual(Object.keys(rules.PLANS), ['uninsured', 'basic', 'complete']);
   assert.equal(rules.planFor('uninsured').premium, 0);
   assert.equal(rules.planFor('uninsured').compulsory, false);
-  assert.equal(rules.planFor('basic').premium, 600);
+  assert.equal(rules.planFor('basic').premium, 250);
   assert.equal(rules.planFor('basic').compulsory, true);
   assert.equal(rules.planFor('basic').thirdPartyLimit, 0);
   assert.equal(rules.planFor('basic').ownLimit, 0);
-  assert.equal(rules.planFor('complete').premium, 1800);
+  assert.equal(rules.planFor('complete').premium, 750);
   assert.equal(rules.planFor('complete').compulsory, true);
   const result = rules.settle(claim(), 'uninsured', { medical: 'compulsory', thirdParty: 'self', ownDamage: 'self' });
   assert.equal(result.ok, false, 'uninsured drivers cannot claim nonexistent compulsory cover');
@@ -239,5 +239,51 @@ test('four-way claims preserve exact financial sums and reject malformed own-inj
   }
   for (const bad of [-1,1.5,Infinity,'4000',null]) {
     assert.equal(rules.settleAuto({...incident,ownMedical:bad},'complete').ok,false);
+  }
+});
+
+
+test('renewal quotes charge for five-question periods and prorate a short final period', () => {
+  assert.equal(rules.ROUND_ACTIVE_MS, 300000);
+  assert.equal(rules.POLICY_PERIOD_MS, 125000);
+  for (const [id, normal, reference] of [['uninsured',0,0],['basic',250,600],['complete',750,1800]]) {
+    assert.equal(rules.planFor(id).premium, normal);
+    assert.equal(rules.planFor(id).referencePremium, reference);
+    assert.equal(rules.premiumQuote(id), normal);
+    assert.equal(rules.premiumQuote(id,300000), normal);
+    assert.equal(rules.premiumQuote(id,125000), normal);
+    assert.equal(rules.premiumQuote(id,25000), Math.ceil(reference/12));
+    assert.equal(rules.premiumQuote(id,50000), Math.ceil(reference/6));
+    assert.equal(rules.premiumQuote(id,0), 0);
+    assert.equal(rules.premiumQuote(id,-1), 0);
+    for (const invalid of [NaN,Infinity,'25000',null]) {
+      const fee=rules.premiumQuote(id,invalid);
+      assert.ok(Number.isSafeInteger(fee) && fee>=0 && fee<=normal);
+    }
+  }
+  assert.equal(rules.premiumQuote('__proto__',25000),rules.premiumQuote('basic',25000));
+});
+
+test('all standard five-minute question paces keep renewal costs within previous full-round budgets', () => {
+  for(const interval of [25000,27500,30000]) {
+    const renewAt=[];
+    for(let active=5*interval;active<rules.ROUND_ACTIVE_MS;active+=5*interval)renewAt.push(active);
+    for(const id of ['uninsured','basic','complete']) {
+      const fees=[rules.premiumQuote(id),...renewAt.map(active=>rules.premiumQuote(id,rules.ROUND_ACTIVE_MS-active))];
+      const total=fees.reduce((sum,value)=>sum+value,0);
+      assert.ok(total<=rules.planFor(id).referencePremium, `${id} at ${interval}ms: ${total}`);
+      if(id!=='uninsured')assert.ok(total>0);
+    }
+    // Different choices may be made at each expiry; even the most expensive
+    // sequence cannot exceed the previous complete-plan five-minute charge.
+    for(const first of Object.keys(rules.PLANS))for(const second of Object.keys(rules.PLANS))for(const third of Object.keys(rules.PLANS)) {
+      const choices=[first,second,third];
+      const total=[0,...renewAt].reduce((sum,active,index)=>sum+rules.premiumQuote(choices[index],rules.ROUND_ACTIVE_MS-active),0);
+      assert.ok(total<=rules.planFor('complete').referencePremium);
+    }
+  }
+  for(const role of Object.values(rules.ROLES)) {
+    assert.ok(role.startingWealth-rules.planFor('complete').referencePremium>0,"premiums alone never consume a role's entire starting property");
+    assert.equal(rules.newWallet('complete',role.id).premium,750,'roles pay the same price for the same coverage');
   }
 });

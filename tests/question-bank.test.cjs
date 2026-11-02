@@ -34,11 +34,12 @@ function teacherQuestions() {
   return { context, run: code => vm.runInContext(code, context) };
 }
 const caseExpression = kind => `({kind:${JSON.stringify(kind === 'player' ? 'player' : 'npc')},meta:{hitRun:${kind === 'hitRun'}},victims:[{name:'小安'},{name:'小晴'}]})`;
-const fill = (text, kind) => text.replaceAll('{{A}}', '小安').replaceAll('{{B}}', kind === 'player' ? '小晴' : 'NPC汽車');
+const fill = (text, kind) => text.replaceAll('{{A}}', '小安').replaceAll('{{B}}', kind === 'player' ? '小晴' : '一部小客車');
 
 test('teacher-edited bank has28 retained questions and preserves all revised content exactly', () => {
-  assert.equal(bank.version, '8.3');
+  assert.equal(bank.version, '8.4');
   assert.equal(bank.count, 28);
+  for (const question of bank.questions) assert.doesNotMatch([question.prompt, ...question.options, question.explanation].join(' '), /NPC/);
   assert.deepEqual(bank.questions, parseTeacherText());
   assert.deepEqual(Array.from({ length: 32 }, (_, index) => index + 1).filter(number => !bank.questions.some(q => q.sourceNumber === number)), [9, 15, 21, 26]);
   assert.equal(fs.existsSync(path.join(root, '教師用_精選32題題庫.txt')), false);
@@ -83,6 +84,7 @@ test('actual game draws every retained question without repeats and preserves an
     seen.add(source.id);
     assert.equal(result.prompt, fill(source.prompt, kind));
     assert.equal(result.explanation, fill(source.explanation, kind));
+    assert.doesNotMatch([result.prompt, ...result.options, result.explanation, result.accidentSummary].join(' '), /NPC/);
     assert.equal(result.options[result.correctIndex], fill(source.options[source.correctIndex], kind));
     assert.deepEqual([...result.options].sort(), source.options.map(text => fill(text, kind)).sort());
     if (result.correctIndex !== source.correctIndex) shuffled = true;
@@ -98,4 +100,19 @@ test('dynamic fallback begins only after the selected case has exhausted its ret
     assert.equal(teacher.run(`buildQuestion(${caseExpression('player')}).templateId.startsWith('dynamic_')`), false);
   }
   assert.equal(teacher.run(`buildQuestion(${caseExpression('player')}).templateId.startsWith('dynamic_')`), true);
+});
+
+
+test('all generated small-car accident summaries use classroom wording without NPC jargon', () => {
+  const core = fs.readFileSync(path.join(root, 'teacher-core.js'), 'utf8');
+  const start = core.indexOf('function npcCrashLine('), end = core.indexOf('function selfCrashLine(', start);
+  const context = vm.createContext({});
+  vm.runInContext(core.slice(start, end), context);
+  for (const pattern of ['rear', 'leftTurn', 'merge', 'cross']) for (const hitRun of [false, true]) for (const playerCauses of [false, true]) {
+    const result = vm.runInContext(`npcCrashLine({name:'小安'},${JSON.stringify({pattern,hitRun,playerCauses})})`, context);
+    assert.doesNotMatch(result, /NPC|一輛一部|一部小客車汽車/);
+    assert.match(result, /小客車/);
+  }
+  const teacher = teacherQuestions();
+  assert.doesNotMatch(teacher.run(`fallbackQuestion(${caseExpression('npc')}).prompt`), /NPC/);
 });

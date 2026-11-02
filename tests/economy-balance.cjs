@@ -74,3 +74,13 @@ assert.ok(initialGap>0,'high-start and low-start roles differ');
 assert.ok(results.find(row=>row.role==='delivery').averageWealth>rules.roleFor('delivery').startingWealth,'low-start role earns through completed work');
 console.table(results);
 console.log(`PASS: 72 five-minute driving runs; terminal wealth ${min}..${max} (spread ${((max-min)/min*100).toFixed(2)}%).`);
+const insuredResults = Object.values(rules.PLANS).map(plan => {
+  const cost = plan.referencePremium;
+  const netMin = min - cost, netMax = max - cost;
+  assert.ok(netMin > 0, 'renewal premiums alone must not bankrupt a baseline working player');
+  assert.ok((netMax - netMin) / netMin <= .10, 'equal coverage must preserve baseline role balance');
+  return { plan: plan.id, maximumFiveMinutePremium: cost, minimumWealthAfterPremium: netMin,
+    maximumWealthAfterPremium: netMax, roleSpreadPercent: ((netMax - netMin) / netMin * 100).toFixed(2) };
+});
+console.table(insuredResults);
+console.log('PASS: maximum renewal budgets preserve positive assets and balanced baseline role outcomes.');
