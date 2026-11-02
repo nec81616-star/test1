@@ -60,7 +60,7 @@ button{position:relative;overflow:hidden;border:4px solid var(--deep);border-rad
 .v7Note{display:block;color:#5c7293;font-size:11px;font-weight:900;margin-top:4px}.missionMeta{display:block;font-size:11px;color:#3f7c55;font-weight:1000}.specialAwards{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin:8px 0 16px}.specialAward{border:3px solid #20487c;border-radius:13px;padding:10px 6px;background:#f1f8ff;font-weight:1000;font-size:14px}.specialAward strong{display:block;margin:6px 0 0;color:#b96315;font-size:17px}.specialAward small{display:block;color:#6983a2;font-size:11px;margin-top:4px}
 @media(max-width:650px){.specialAwards{grid-template-columns:1fr}}
 
-/* ==== v8.0 cartoon reskin overrides ==== */
+/* ==== v8.1 cartoon reskin overrides ==== */
 :root{--deep:#18315e;--green:#37c978;--yellow:#ffd24d;--red:#ff6666;--blue:#4aa8ff;--road:#616779;--curb:#40485c;--paper:#fff8eb}
 body{background:
  radial-gradient(circle at 10% 15%,rgba(255,255,255,.35) 0 12px,transparent 13px),
@@ -151,7 +151,7 @@ button:hover:not(:disabled){transform:translateY(-2px) scale(1.02)}
 @media(max-width:1020px){.layout{grid-template-columns:1fr}.map{min-height:680px}}
 
 
-/* v8.0 traffic light refinement */
+/* v8.1 traffic light refinement */
 .lightPod{width:66px;height:86px;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 7px;border-radius:18px;background:linear-gradient(180deg,#253049,#121a2b);border:4px solid #0d1630;box-shadow:0 8px 0 rgba(0,0,0,.2),0 12px 18px rgba(0,0,0,.16)}
 .lightPod .signalCol{display:flex;flex-direction:column;justify-content:space-between;align-items:center;background:rgba(255,255,255,.03);border-radius:10px;padding:2px 0}
 .lightPod .lamp{display:block;width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.14);box-shadow:inset 0 -2px 3px rgba(0,0,0,.45);transition:.18s}
@@ -163,7 +163,7 @@ button:hover:not(:disabled){transform:translateY(-2px) scale(1.02)}
 .lightPod .greenLamp.active{background:#39dd68;box-shadow:0 0 12px rgba(57,221,104,.9), inset 0 0 5px rgba(255,255,255,.35)}
 
 
-/* v8.0 four-side horizontal traffic lights */
+/* v8.1 four-side horizontal traffic lights */
 .signalGroup{position:absolute;z-index:22;transform:translate(-50%,-50%);pointer-events:none;width:78px;height:78px}
 .sgA{left:25%;top:26%}.sgB{left:75%;top:26%}.sgC{left:25%;top:74%}.sgD{left:75%;top:74%}
 .signalSide{position:absolute;display:flex;gap:4px;align-items:center;justify-content:center;width:62px;height:22px;padding:2px 5px;border-radius:999px;background:linear-gradient(180deg,#28324b,#141d2d);border:3px solid #0d1630;box-shadow:0 5px 0 rgba(0,0,0,.18),0 8px 14px rgba(0,0,0,.14)}
@@ -177,10 +177,10 @@ button:hover:not(:disabled){transform:translateY(-2px) scale(1.02)}
 .signalSide .yellowLamp.active{background:#ffd83f;box-shadow:0 0 12px rgba(255,216,63,.9), inset 0 0 5px rgba(255,255,255,.35)}
 .signalSide .greenLamp.active{background:#39dd68;box-shadow:0 0 12px rgba(57,221,104,.9), inset 0 0 5px rgba(255,255,255,.35)}
 
-</style><link rel="stylesheet" href="teacher-v8.css?v=800"></head>
+</style><link rel="stylesheet" href="teacher-v8.css?v=810"></head>
 <body>
 <div class="top">
-  <div><h1>🚦 險中求生城市交通大作戰 <span class="versionBadge">v8.0</span></h1></div>
+  <div><h1>🚦 險中求生城市交通大作戰 <span class="versionBadge">v8.1</span></h1></div>
   <div class="room">房號 <span id="roomShow">----</span></div>
 </div>
 <div class="hostControlBar">
@@ -200,13 +200,13 @@ button:hover:not(:disabled){transform:translateY(-2px) scale(1.02)}
 <div class="cross xA"><span class="zebra top"></span><span class="zebra bottom"></span><span class="zebra left"></span><span class="zebra right"></span></div><div class="cross xB"><span class="zebra top"></span><span class="zebra bottom"></span><span class="zebra left"></span><span class="zebra right"></span></div><div class="cross xC"><span class="zebra top"></span><span class="zebra bottom"></span><span class="zebra left"></span><span class="zebra right"></span></div><div class="cross xD"><span class="zebra top"></span><span class="zebra bottom"></span><span class="zebra left"></span><span class="zebra right"></span></div>
 <div class="building school b1">🏫</div><div class="building cafe b2">☕</div><div class="building office b3">🏢</div><div class="building hospital b4">✚</div><div class="building park b5">🌳</div><div class="building shop b6">🏪</div><div class="building gas b7">⛽</div><div class="building apt b8">🏠</div><div class="building office b9">🏬</div><div class="building shop b10">🛒</div><div class="building miniHouse b11">🏡</div><div class="building library b12">📚</div><div class="building station b13">🚉</div><div class="building miniShop b14">🥐</div><div class="building bank b15">🏦</div><div class="building post b16">📮</div><div class="building bookstore b17">📖</div><div class="building restaurant b18">🍜</div>
 <div class="signalGroup sgA" data-node="A"><div class="signalSide ns side-top"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-right"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ns side-bottom"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-left"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div></div><div class="signalGroup sgB" data-node="B"><div class="signalSide ns side-top"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-right"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ns side-bottom"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-left"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div></div><div class="signalGroup sgC" data-node="C"><div class="signalSide ns side-top"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-right"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ns side-bottom"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-left"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div></div><div class="signalGroup sgD" data-node="D"><div class="signalSide ns side-top"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-right"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ns side-bottom"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div><div class="signalSide ew side-left"><span class="lamp redLamp"></span><span class="lamp yellowLamp"></span><span class="lamp greenLamp"></span></div></div>
-<div id="destinationPins"></div><div class="statusbar" id="mapStatus">建立房間後等待學生加入</div><div class="hostbadge" id="hostBadge">老師端 v8.0｜尚未建立房間</div><div id="cars"></div>
+<div id="destinationPins"></div><div class="statusbar" id="mapStatus">建立房間後等待學生加入</div><div class="hostbadge" id="hostBadge">老師端 v8.1｜尚未建立房間</div><div id="cars"></div>
 </div></div>
-<div><div class="panel"><div class="phead">積分排行</div><div class="pbody"><div id="setupMsg">請先建立房間；建立後即可邀請學生</div><div class="gameTicker" id="gameTicker">🧭 v8.0：選路・保障配置・現場處置</div><div class="metrics"><div class="metric"><small>玩家</small><strong id="mPlayers">0</strong></div><div class="metric"><small>READY</small><strong id="mReady">0</strong></div><div class="metric"><small>事故人數</small><strong id="mAcc">0</strong></div></div><div class="ranking" id="ranking"></div></div></div></div>
+<div><div class="panel"><div class="phead">財產排行</div><div class="pbody"><div id="setupMsg">請先建立房間；建立後即可邀請學生</div><div class="gameTicker" id="gameTicker">💰 v8.1：職業收入・財產排名・每25～30秒自動出題</div><div class="metrics"><div class="metric"><small>玩家</small><strong id="mPlayers">0</strong></div><div class="metric"><small>READY</small><strong id="mReady">0</strong></div><div class="metric"><small>事故人數</small><strong id="mAcc">0</strong></div></div><div class="ranking" id="ranking"></div></div></div></div>
 </div>
 <div class="qoverlay hidden" id="qOverlay"><div class="qbox"><div class="qtop"><h2>📚 全班案例演練</h2><div class="answered" id="qCount">0 / 0 已作答</div></div><div class="accdetail" id="accDetail"></div><div class="question" id="qPrompt"></div><div id="bars"></div><div class="qfoot"><div class="answered" id="answeredText"></div><div><button id="revealBtn" class="orange">公布答案</button><button id="continueBtn" class="green hidden">繼續行車</button></div></div><div class="explain hidden" id="explain"></div></div></div>
 
-<div class="finalOverlay hidden" id="finalOverlay"><div class="finalBox"><div class="finalTitle">🏆 恭喜本局前三名！</div><div class="finalSub">任務積分排名；同時查看任務收入、事故支出與保障效果</div><div class="podium" id="podium"></div><div class="specialAwards" id="specialAwards"></div><div class="finalBtns"><button class="green" id="closeFinalBtn">查看地圖</button><button id="resetFromFinalBtn">再開一局</button></div></div></div>
+<div class="finalOverlay hidden" id="finalOverlay"><div class="finalBox"><div class="finalTitle">🏆 恭喜本局前三名！</div><div class="finalSub">依剩餘財產排名；工作加錢、事故扣錢</div><div class="podium" id="podium"></div><div class="specialAwards" id="specialAwards"></div><div class="finalBtns"><button class="green" id="closeFinalBtn">查看地圖</button><button id="resetFromFinalBtn">再開一局</button></div></div></div>
 
 <div class="hostModal hidden" id="inviteModal"><div class="hostModalBox"><div class="hostModalHead"><h2>📱 邀請學生</h2><button class="closeBtn" id="closeInvite">✕</button></div><div class="inviteRoom">房號 <span id="inviteRoomCode">----</span></div><div class="qrWrap"><div id="qrcode"></div></div><div class="inviteUrl" id="inviteUrl"></div></div></div>
 <div class="hostModal hidden" id="membersModal"><div class="hostModalBox"><div class="hostModalHead"><h2>👥 成員名單 <span id="memberCount">0</span></h2><button class="closeBtn" id="closeMembers">✕</button></div><div class="memberList" id="memberList"></div></div></div>
@@ -214,4 +214,4 @@ button:hover:not(:disabled){transform:translateY(-2px) scale(1.02)}
 
 
 
-<script src="bootstrap.js?v=800" data-page="teacher"></script></body></html>
+<script src="bootstrap.js?v=810" data-page="teacher"></script></body></html>

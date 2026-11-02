@@ -192,7 +192,7 @@ function advanceActors(dt){
    if(!a.isAmbient&&a.status==='driving'&&(!a.pauseUntil||now>=a.pauseUntil)&&(!a.boundaryWait||now>=a.boundaryWait)){
     const moved=Math.max(0,a.t-previous)*nodeVec(a.from,a.to).len;
     a.distanceSinceVisit=(a.distanceSinceVisit||0)+moved;
-    a.driveElapsedMs=(a.driveElapsedMs||0)+dt;
+    if(Number(players[a.id]?.speed||0)>0)a.driveElapsedMs=(a.driveElapsedMs||0)+dt;
    }
    front=a;
   }
@@ -217,7 +217,7 @@ function advanceActors(dt){
   a.nextT=a.t;
  }
 }
-function scoreRank(){return Object.entries(players).filter(([,p])=>p.ready).sort((a,b)=>(b[1].score||0)-(a[1].score||0))}
+function scoreRank(){return Object.entries(players).filter(([,p])=>p.ready).sort((a,b)=>RISK_GAME.getWealth(b[1])-RISK_GAME.getWealth(a[1])||String(a[1].name||'').localeCompare(String(b[1].name||''),'zh-Hant')||a[0].localeCompare(b[0]))}
 function renderSide(){
   let arr=Object.entries(players),ready=arr.filter(([,p])=>p.ready).length;
   $('mPlayers').textContent=arr.length;$('mReady').textContent=ready;$('mAcc').textContent=affectedCount;
@@ -532,7 +532,7 @@ function renderMemberList(){
   $('memberList').innerHTML=arr.length?arr.map((p,i)=>`<div class="memberRow"><div class="memberNo">${i+1}</div><div><b>${safeText(p.name||'未命名')}</b><small>${p.connected===false?'連線中斷':'已加入房間'}</small></div><div class="memberState ${p.ready?'ready':''}">${p.ready?'READY':'準備中'}</div></div>`).join(''):'<div style="padding:24px;text-align:center;font-weight:900;color:#789">目前尚無學生加入</div>';
 }
 function studentInviteUrl(){
-  const invite = new URL(`student.html?v=800&room=${encodeURIComponent(room)}`, window.location.href); if(window.LOCAL_DEMO)invite.searchParams.set('demo','1'); return invite.href;
+  const invite = new URL(`student.html?v=810&room=${encodeURIComponent(room)}`, window.location.href); if(window.LOCAL_DEMO)invite.searchParams.set('demo','1'); return invite.href;
 }
 function showInvite(){
   if(!room) return;
@@ -550,18 +550,16 @@ $('inviteModal').onclick=e=>{if(e.target===$('inviteModal'))$('inviteModal').cla
 $('membersModal').onclick=e=>{if(e.target===$('membersModal'))$('membersModal').classList.add('hidden')};
 
 
-function finalRanking(){
-  return Object.entries(players).filter(([,p])=>p.ready).sort((a,b)=>Number(b[1].score||0)-Number(a[1].score||0)||String(a[1].name||'').localeCompare(String(b[1].name||''),'zh-Hant')).slice(0,3)
-}
+function finalRanking(){return scoreRank().slice(0,3)}
 function showFinalPodium(){
   let top=finalRanking(),order=[1,0,2],classes=['second','first','third'],medals=['🥈','🥇','🥉'],places=['第二名','第一名','第三名'];
   $('podium').innerHTML=order.map((srcIndex,displayIndex)=>{
     let item=top[srcIndex],cls=classes[displayIndex],medal=medals[displayIndex],place=places[displayIndex];
     if(!item)return `<div class="pod ${cls} empty"><div class="medal">${medal}</div><div class="place">${place}</div><div class="winnerName">—</div><div class="winnerScore">—</div></div>`;
     let [,p]=item;
-    return `<div class="pod ${cls}"><div class="medal">${medal}</div><div class="place">${place}</div><div class="winnerName">${safeText(p.name||'玩家')}</div><div class="winnerScore">${Number(p.score||0)} 分</div></div>`
+    return `<div class="pod ${cls}"><div class="medal">${medal}</div><div class="place">${place}</div><div class="winnerName">${safeText(p.name||'玩家')}</div><div class="winnerScore">${'$'+RISK_GAME.getWealth(p).toLocaleString('zh-TW')}</div></div>`
   }).join('');
-  let awardDefs=[['🧭 任務達人','visitCount','最多拜訪站數'],['🧠 保險知識王','quizCorrect','最多保險題答對']];
+  let awardDefs=[['🧭 任務達人','visitCount','最多拜訪站數'],['💼 工作達人','completedRuns','最多完成任務趟數']];
  $('specialAwards').innerHTML=awardDefs.map(([title,key,subtitle])=>{
  let winner=Object.values(players).filter(p=>p.ready).sort((a,b)=>Number(b[key]||0)-Number(a[key]||0))[0];
  return `<div class="specialAward">${title}<strong>${safeText(winner?.name||'—')}</strong><small>${subtitle} ${Number(winner?.[key]||0)}</small></div>`
@@ -637,13 +635,13 @@ $('startBtn').onclick=async()=>{
  sim=initialPlacement(arr);currentEnvironment=randomEnvironment();environmentChangedAt=Date.now()-ENVIRONMENT_ADJUST_MS;overspeedPending.clear();usedQuestionIds.clear();questionCategoryCounts={};lastQuestionCategory="";timedQuestionSerial=0;questionSerial=0;accidentsThisRound=0;renderEnvironment();
  let updates={status:'running',globalQuestion:null,usedQuestions:null,usedQuestionCategories:null,environment:currentEnvironment,startedAt:firebase.database.ServerValue.TIMESTAMP};
  arr.forEach(([id])=>{
-  let p=players[id],a=sim[id];a.stops=missionPlan(p,1);a.stage=0;a.run=1;a.lockedPlan=RISK_GAME.planFor(p.insurancePlan).id;a.routeMode=RISK_GAME.routeFor(p.routeChoice).id;a.incidentCooldownUntil=Date.now()+20000;a.arrivalBusy=false;a.pauseUntil=0;a.runElapsedMs=0;a.runBudgetMs=0;
-  updates[`players/${id}/status`]='driving';updates[`players/${id}/score`]=0;updates[`players/${id}/insurancePlan`]=a.lockedPlan;updates[`players/${id}/wallet`]=RISK_GAME.newWallet(a.lockedPlan);updates[`players/${id}/incident`]=null;updates[`players/${id}/actionRequest`]=null;updates[`players/${id}/incidentCount`]=0;updates[`players/${id}/quizAwards`]=null;
+  let p=players[id],a=sim[id];a.stops=missionPlan(p,1);a.stage=0;a.run=1;a.lockedPlan=RISK_GAME.planFor(p.insurancePlan).id;a.lockedRole=RISK_GAME.roleFor(p.roleId).id;a.routeMode=RISK_GAME.routeFor(p.routeChoice).id;a.incidentCooldownUntil=Date.now()+20000;a.arrivalBusy=false;a.pauseUntil=0;a.runElapsedMs=0;a.runBudgetMs=0;a.minVisitDistance=a.to===goalFor(a)?Math.min(MIN_VISIT_ROAD_DISTANCE,nodeVec(a.from,a.to).len*(1-a.t)):MIN_VISIT_ROAD_DISTANCE;
+  updates[`players/${id}/status`]='driving';updates[`players/${id}/score`]=null;updates[`players/${id}/insurancePlan`]=a.lockedPlan;updates[`players/${id}/wallet`]=RISK_GAME.newWallet(a.lockedPlan,a.lockedRole);updates[`players/${id}/incident`]=null;updates[`players/${id}/actionRequest`]=null;updates[`players/${id}/incidentCount`]=0;updates[`players/${id}/quizAwards`]=null;
   updates[`players/${id}/missionStops`]=a.stops;updates[`players/${id}/missionIndex`]=0;updates[`players/${id}/missionRound`]=1;updates[`players/${id}/visitCount`]=0;updates[`players/${id}/completedRuns`]=0;updates[`players/${id}/safeTicks`]=0;updates[`players/${id}/safeStreak`]=0;updates[`players/${id}/bestStreak`]=0;updates[`players/${id}/lastBonusAmount`]=0;updates[`players/${id}/lastVisitAt`]=null;updates[`players/${id}/quizCorrect`]=0;
   updates[`players/${id}/currentEvent`]='🚦 行駛中';updates[`players/${id}/lastFeedback`]=null;updates[`players/${id}/lastMissionBonusAt`]=null;updates[`players/${id}/lastSpeedHintAt`]=null;updates[`players/${id}/overspeedUntil`]=null;updates[`players/${id}/lastOverspeedCrashAt`]=null
  });
  await ref.update(updates);if(ref!==roomRef||generation!==roundSerial)return;running=true;paused=false;lastTs=performance.now();lastMissionAward=Date.now();
- $('stopBtn').disabled=false;$('startBtn').disabled=true;announce('🚦 出發！看路況調整時速、連續達標拿獎勵，車輛將自動跑完拜訪路線');startEnvironmentCycle();startAccidentCycle();startQuestionClock();requestAnimationFrame(ts=>tick(ts,generation));
+ $('stopBtn').disabled=false;$('startBtn').disabled=true;announce('🚦 出發！完成工作賺錢、事故自付扣錢，依剩餘財產排名。每25～30秒自動出題。');startEnvironmentCycle();startAccidentCycle();startQuestionClock();requestAnimationFrame(ts=>tick(ts,generation));
  }catch(error){if(ref===roomRef&&generation===roundSerial){running=false;$('setupMsg').textContent='發車失敗：'+(error.message||'請確認連線')}console.error(error)}
  finally{starting=false;if(ref===roomRef)renderSide()}
 };
@@ -651,21 +649,7 @@ function isTaskSpeedOnTarget(p){
  let s=Number(p.speed),r=drivingScoreRange(currentEnvironment);
  return !!r&&Number.isFinite(s)&&s>=r.min&&s<=r.max;
 }
-async function awardMissionProgress(){
- const ref=roomRef,generation=roundSerial,jobs=[];
- for(const [id,p]of Object.entries(players)){
-  const actor=sim[id];if(!p.ready||p.status!=='driving'||actor?.status!=='driving')continue;
-  jobs.push(ref.child(`players/${id}`).transaction(player=>{
-    if(ref!==roomRef||generation!==roundSerial||actor!==sim[id]||!running||paused||!player||player.status!=='driving'||actor.status!=='driving')return;
-    if(isTaskSpeedOnTarget(player)){
-      const streak=Number(player.safeStreak||0)+1,bonus=streak%4===0?13:3;
-      return{...player,score:Number(player.score||0)+bonus,lastMissionBonusAt:firebase.database.ServerValue.TIMESTAMP,lastBonusAmount:bonus,safeStreak:streak,bestStreak:Math.max(streak,Number(player.bestStreak||0)),safeTicks:Number(player.safeTicks||0)+1};
-    }
-    if(Number(player.safeStreak||0)>0)return{...player,safeStreak:0};
-  }));
- }
- await Promise.allSettled(jobs);
-}
+async function awardMissionProgress(){/* 財產只因工作收入與事故結算改變。 */}
 $('revealBtn').onclick=async()=>{
  const ref=roomRef,generation=roundSerial,q=currentQuestion;
  if(!ref||!running||!paused||!q||q.revealed||q.closed)return;
@@ -681,7 +665,7 @@ $('revealBtn').onclick=async()=>{
     if(ref!==roomRef||generation!==roundSerial||!running||!p||!p.ready||p.status==='finished'||p.quizAwards?.[q.id])return;
     const a=answers[id];if(!a)return;
     const correct=Number(a.option)===Number(q.correctIndex);
-    return{...p,quizAwards:{...(p.quizAwards||{}),[q.id]:true},score:Number(p.score||0)+(correct?30:0),quizCorrect:Number(p.quizCorrect||0)+(correct?1:0),lastFeedback:correct?'✅ 全班案例答對，+30 分':'本次案例未答對，可依解析再想一想'};
+    return{...p,quizAwards:{...(p.quizAwards||{}),[q.id]:true},quizCorrect:Number(p.quizCorrect||0)+(correct?1:0),lastFeedback:correct?'✅ 本題答對，看看解析再繼續行車。':'本題未答對，可依解析再想一想。'};
   }));
   await Promise.allSettled(jobs);
  }catch(error){console.error('案例公布失敗',error)}

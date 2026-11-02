@@ -9,11 +9,22 @@
   const PLANS = Object.freeze({
     basic: Object.freeze({ id: 'basic', name: '基本保障', premium: 0, thirdPartyLimit: 0, ownLimit: 0,
       description: '已含強制險基本人身保障；第三人財損與自己車損留用備用金負擔。' }),
-    liability: Object.freeze({ id: 'liability', name: '責任補強', premium: 1200, thirdPartyLimit: 30000, ownLimit: 0,
+    liability: Object.freeze({ id: 'liability', name: '保對方', premium: 1200, thirdPartyLimit: 30000, ownLimit: 0,
       description: '基本保障＋第三人財損保障；自己的修車費仍需自行負擔。' }),
-    complete: Object.freeze({ id: 'complete', name: '車損補強', premium: 2800, thirdPartyLimit: 30000, ownLimit: 15000,
+    complete: Object.freeze({ id: 'complete', name: '保雙方', premium: 2800, thirdPartyLimit: 30000, ownLimit: 15000,
       description: '基本保障＋第三人財損＋自己車損保障；出發時可用資金較少。' }),
   });
+  // Calibrated against 300s of active driving over all 12 map spawn slots.
+  // Lower starting wealth trades off against faster work and higher earnings.
+  const ROLES = Object.freeze(Object.fromEntries([
+    ['office', '上班族', 10000, 430, 18, '本金中等、工作節奏穩定'],
+    ['delivery', '外送員', 6000, 530, 12, '本金較少、接單與收入較快'],
+    ['caregiver', '家庭照顧者', 11000, 500, 26, '本金較多、每趟工作較久'],
+    ['sales', '業務人員', 8000, 670, 22, '本金較少、單次報酬較高'],
+    ['student', '學生', 6500, 510, 14, '本金較少、短程工作累積快'],
+    ['public', '教師／公務人員', 10500, 500, 24, '本金較多、收入步調較慢'],
+  ].map(([id, name, startingWealth, stationIncome, workSeconds, description]) =>
+    [id, Object.freeze({ id, name, startingWealth, stationIncome, workSeconds, description })])));
   const ROUTES = Object.freeze({
     main: Object.freeze({ id: 'main', name: '城市幹道', description: '優先走幹道，視野較清楚；壅塞時會拖慢行程。', riskLabel: '較低風險・可能壅塞' }),
     shortcut: Object.freeze({ id: 'shortcut', name: '穿越巷道', description: '優先利用中央巷道縮短路程；路口密集，雨天更需減速。', riskLabel: '較高風險・距離較短' }),
@@ -25,10 +36,17 @@
   });
   function planFor(id) { return Object.hasOwn(PLANS, id) ? PLANS[id] : PLANS.basic; }
   function routeFor(id) { return Object.hasOwn(ROUTES, id) ? ROUTES[id] : ROUTES.main; }
-  function newWallet(planId) {
+  function roleFor(id) { return Object.hasOwn(ROLES, id) ? ROLES[id] : ROLES.office; }
+  function newWallet(planId, roleId) {
     const plan = planFor(planId);
-    return { balance: START_BUDGET - plan.premium, premium: plan.premium,
+    const role = roleFor(roleId);
+    return { initialAssets: role.startingWealth, balance: role.startingWealth - plan.premium, premium: plan.premium,
       totalOutOfPocket: 0, missionIncome: 0, insurancePaid: 0 };
+  }
+  function getWealth(player) {
+    const value = player?.wallet?.balance;
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value : newWallet(player?.insurancePlan, player?.roleId).balance;
   }
   function createIncident(id, kind, player) {
     const solo = kind === 'overspeed';
@@ -97,5 +115,13 @@
     incident.feedback = `結算完成：保障分擔 $${insurancePaid.toLocaleString()}，自行負擔 $${settlement.outOfPocket.toLocaleString()}。`;
     return { ok: true, incident, settlement, message: incident.feedback };
   }
-  return Object.freeze({ VERSION: '8.0', START_BUDGET, PLANS, ROUTES, ACTIONS, planFor, routeFor, newWallet, createIncident, act, settle });
+  function settleAuto(incident, planId) {
+    const plan = planFor(planId);
+    return settle(incident, plan.id, {
+      medical: 'compulsory',
+      thirdParty: plan.thirdPartyLimit > 0 ? 'liability' : 'self',
+      ownDamage: plan.ownLimit > 0 ? 'own' : 'self',
+    });
+  }
+  return Object.freeze({ VERSION: '8.1', START_BUDGET, PLANS, ROUTES, ROLES, ACTIONS, planFor, routeFor, roleFor, getWealth, newWallet, createIncident, act, settle, settleAuto });
 });

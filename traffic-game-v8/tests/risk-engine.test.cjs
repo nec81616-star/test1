@@ -17,27 +17,40 @@ function freeze(value) {
   return value;
 }
 
-test('coverage choices have an upfront budget tradeoff and no hidden wallet mutation', () => {
-  assert.equal(rules.newWallet('basic').balance, 10000);
-  assert.equal(rules.newWallet('liability').balance, 8800);
-  assert.equal(rules.newWallet('complete').balance, 7200);
-  for (const plan of Object.values(rules.PLANS)) {
-    const wallet = rules.newWallet(plan.id);
-    assert.equal(wallet.balance + wallet.premium, rules.START_BUDGET);
+test('role economy and insurance create upfront tradeoffs without mutating other wallets', () => {
+  const roles = Object.values(rules.ROLES);
+  assert.equal(roles.length, 6);
+  assert.ok(new Set(roles.map(role => role.startingWealth)).size >= 4);
+  assert.ok(new Set(roles.map(role => role.stationIncome / role.workSeconds)).size >= 4);
+  for (const role of roles) for (const plan of Object.values(rules.PLANS)) {
+    const wallet = rules.newWallet(plan.id, role.id);
+    assert.equal(wallet.initialAssets, role.startingWealth);
+    assert.equal(wallet.balance + wallet.premium, role.startingWealth);
+    assert.equal(wallet.premium, plan.premium);
     assert.equal(wallet.totalOutOfPocket, 0);
     assert.equal(wallet.insurancePaid, 0);
+    assert.ok(Number.isSafeInteger(role.stationIncome) && role.stationIncome > 0);
+    assert.ok(role.workSeconds >= 9);
   }
-  const original = rules.newWallet('complete');
-  const later = rules.newWallet('complete');
+  const original = rules.newWallet('complete', 'student');
+  const later = rules.newWallet('complete', 'student');
   later.balance = -100;
-  assert.equal(original.balance, 7200);
+  assert.equal(original.balance, rules.roleFor('student').startingWealth - rules.planFor('complete').premium);
+});
+
+test('property ranking values preserve zero and debt and ignore legacy points', () => {
+  assert.equal(rules.getWealth({ wallet: { balance: 0 }, score: 99999 }), 0);
+  assert.equal(rules.getWealth({ wallet: { balance: -250 }, score: 99999 }), -250);
+  assert.equal(rules.getWealth({ wallet: { balance: 9000 }, score: 0 }), 9000);
+  assert.equal(rules.getWealth({ roleId: 'student', insurancePlan: 'complete' }), rules.newWallet('complete', 'student').balance);
 });
 
 test('unknown plan and route identifiers cannot select inherited object properties', () => {
   for (const invalid of ['missing', '__proto__', 'constructor', 'toString']) {
     assert.equal(rules.planFor(invalid).id, 'basic');
     assert.equal(rules.routeFor(invalid).id, 'main');
-    assert.equal(rules.newWallet(invalid).balance, 10000);
+    assert.equal(rules.newWallet(invalid).balance, rules.roleFor('office').startingWealth);
+    assert.equal(rules.roleFor(invalid).id, 'office');
   }
 });
 
@@ -120,4 +133,19 @@ test('uninjured overspeed cases allow zero medical loss; malformed financial inp
   for (const bad of [-1, 1.5, Infinity, 'not a number']) {
     assert.equal(rules.settle({ ...incident, ownDamage: bad }, 'complete', { thirdParty: 'liability', ownDamage: 'own' }).ok, false);
   }
+});
+
+
+test('automatic claims select only purchased coverage without insurance form input', () => {
+  const incident = freeze(claim());
+  for (const [plan, amount] of [['basic', 6500], ['liability', 3500], ['complete', 0]]) {
+    const result = rules.settleAuto(incident, plan);
+    assert.equal(result.ok, true);
+    assert.equal(result.incident.stage, 'settled');
+    assert.equal(result.settlement.outOfPocket, amount);
+    assert.equal(result.settlement.totalLoss, result.settlement.outOfPocket + result.settlement.insurancePaid);
+    assert.equal(rules.settleAuto(result.incident, plan).ok, false, 'already settled claims cannot pay twice');
+  }
+  assert.equal(incident.stage, 'claim');
+  assert.equal(rules.settleAuto(rules.createIncident('fresh', 'collision', {}), 'complete').ok, false);
 });
