@@ -532,7 +532,7 @@ function renderMemberList(){
   $('memberList').innerHTML=arr.length?arr.map((p,i)=>`<div class="memberRow"><div class="memberNo">${i+1}</div><div><b>${safeText(p.name||'未命名')}</b><small>${p.connected===false?'連線中斷':'已加入房間'}</small></div><div class="memberState ${p.ready?'ready':''}">${p.ready?'READY':'準備中'}</div></div>`).join(''):'<div style="padding:24px;text-align:center;font-weight:900;color:#789">目前尚無學生加入</div>';
 }
 function studentInviteUrl(){
-  const invite = new URL(`student.html?v=810&room=${encodeURIComponent(room)}`, window.location.href); if(window.LOCAL_DEMO)invite.searchParams.set('demo','1'); return invite.href;
+  const invite = new URL(`student.html?v=820&room=${encodeURIComponent(room)}`, window.location.href); if(window.LOCAL_DEMO)invite.searchParams.set('demo','1'); return invite.href;
 }
 function showInvite(){
   if(!room) return;
@@ -574,6 +574,7 @@ $('stopBtn').onclick=async()=>{
   running=false;paused=true;stopEnvironmentCycle();stopQuestionClock();$('stopBtn').disabled=true;$('startBtn').disabled=true;
   $('qOverlay').classList.add('hidden');
   try{
+    await window.settleOpenIncidentsAtEnd(ref,generation);
     const snapshot=await ref.child('players').once('value');
     if(ref!==roomRef||generation!==roundSerial)return;
     players=snapshot.val()||players;

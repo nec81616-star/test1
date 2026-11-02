@@ -104,6 +104,7 @@
     actor.status = 'incident';
     const incident = Engine.createIncident(`incident_${Date.now()}_${++practiceNumber}`, kind, player);
     incident.practice = !!practice;
+    incident.insuranceInspection = { checked: false };
     if (practice) incident.title = '🧰 現場處置演練（不計事故、不扣款）';
     incident.startedAt = Date.now();
     try {
@@ -146,15 +147,46 @@
         let answer = request.action === 'settle'
           ? Engine.settleAuto(incident, actor.lockedPlan || 'basic')
           : Engine.act(incident, request.action);
-        if (answer.ok && answer.incident.stage === 'claim') answer = Engine.settleAuto(answer.incident, actor.lockedPlan || 'basic');
-        const updated = { ...(answer.incident || incident), feedback: answer.message || '', lastActionId: request.id };
+        let updated = { ...(answer.incident || incident) };
+        let wallet = player.wallet || Engine.newWallet(actor.lockedPlan || 'basic', actor.lockedRole);
+        let fineCharged = false;
+        // The police check belongs to this accident, not to a random roadside
+        // timer or classroom quiz. The same atomic player transaction stores
+        // the check and its one-time fine, so retries cannot charge it again.
+        if (answer.ok && !updated.insuranceInspection?.checked &&
+            (request.action === 'call' || ['claim', 'settled'].includes(updated.stage))) {
+          const inspection = Engine.inspectionFor(actor.lockedPlan || 'basic', !!incident.practice);
+          updated.insuranceInspection = inspection;
+          if (inspection.fine > 0) {
+            wallet = { ...wallet,
+              balance: Number(wallet.balance) - inspection.fine,
+              totalFines: Number(wallet.totalFines || 0) + inspection.fine,
+            };
+            fineCharged = true;
+          }
+          if (request.action === 'call') answer.message = inspection.note;
+        }
+        if (answer.ok && updated.stage === 'claim') {
+          answer = Engine.settleAuto(updated, actor.lockedPlan || 'basic');
+          updated = { ...(answer.incident || updated) };
+        }
+        updated.feedback = answer.message || '';
+        updated.lastActionId = request.id;
         const output = { ...player, incident: updated, actionRequest: null };
+        if (fineCharged) output.wallet = wallet;
+        if (answer.ok && request.action === 'call' && updated.insuranceInspection?.checked) {
+          output.currentEvent = updated.feedback;
+        }
         if (answer.ok && updated.stage === 'settled' && answer.settlement) {
-          const settlement = answer.settlement;
-          const wallet = player.wallet || Engine.newWallet(actor.lockedPlan || 'basic', actor.lockedRole);
+          const fine = Number(updated.insuranceInspection?.fine || 0);
+          const settlement = { ...answer.settlement, fine,
+            totalDeduction: Number(answer.settlement.outOfPocket || 0) + fine };
+          output.incident.settlement = settlement;
           if (incident.practice) {
             output.incident.feedback = '演練完成。以下為模擬結算，本次不扣款、不計事故。';
           } else {
+            // Any uninsured fine was already charged during the police call.
+            // Only compensation is charged here; preserve the prior fine ledger.
             output.wallet = { ...wallet,
               balance: Number(wallet.balance) - Number(settlement.outOfPocket || 0),
               totalOutOfPocket: Number(wallet.totalOutOfPocket || 0) + Number(settlement.outOfPocket || 0),
@@ -162,7 +194,8 @@
             };
           }
           output.status = 'driving';
-          output.lastFeedback = incident.practice ? '✅ 處置演練完成，已恢復行車（不扣款）' : `✅ 現場與理賠處理完成，自付 ${cash(settlement.outOfPocket)}；已恢復行車`;
+          output.lastFeedback = incident.practice ? '✅ 處置演練完成，已恢復行車（不扣款）' :
+            `✅ 事故處理完成：自付 ${cash(settlement.outOfPocket)}${fine ? `、未投保模擬罰款 ${cash(fine)}` : ''}；已恢復行車`;
           output.currentEvent = output.lastFeedback;
           output.speed = Math.min(Number(player.speed || 0), drivingScoreRange(currentEnvironment)?.max || 40);
         }
@@ -181,6 +214,40 @@
       if (running && players[id]?.actionRequest) setTimeout(() => processAction(id), 80);
     }
   }
+  // An unresolved accident is still a financial liability. Closing the round
+  // settles it without inventing completed safety actions or a second fine.
+  window.settleOpenIncidentsAtEnd = async function(ref, generation) {
+    const valid = () => ref === roomRef && generation === roundSerial && !running;
+    const snapshot = await ref.child('players').once('value');
+    if (!valid()) return;
+    await Promise.all(Object.entries(snapshot.val() || {}).map(async ([id, initial]) => {
+      if (!initial.ready || !initial.incident || initial.incident.practice || initial.incident.stage === 'settled') return;
+      const lockedPlan = sim[id]?.lockedPlan || Engine.planFor(initial.insurancePlan).id;
+      const lockedRole = sim[id]?.lockedRole || Engine.roleFor(initial.roleId).id;
+      await ref.child(`players/${id}`).transaction(player => {
+        if (!valid() || !player?.ready || !player.incident || player.incident.practice || player.incident.stage === 'settled') return;
+        const incident = player.incident;
+        const alreadyChecked = !!incident.insuranceInspection?.checked;
+        const inspection = alreadyChecked ? incident.insuranceInspection : Engine.inspectionFor(lockedPlan, false);
+        const result = Engine.settleAuto({ ...incident, stage: 'claim', insuranceInspection: inspection }, lockedPlan);
+        if (!result.ok) throw new Error('局末事故清算失敗：' + result.message);
+        const newFine = alreadyChecked ? 0 : Number(inspection.fine || 0);
+        const fine = Number(inspection.fine || 0);
+        const settlement = { ...result.settlement, fine, totalDeduction: result.settlement.outOfPocket + fine };
+        const wallet = player.wallet || Engine.newWallet(lockedPlan, lockedRole);
+        return { ...player, actionRequest: null,
+          incident: { ...result.incident, settlement,
+            sceneIncomplete: !incident.actions?.documents, closedByRoundEnd: true,
+            feedback: '本局結束：未完成的事故仍須結清損失與查驗罰款；現場處置保留原紀錄。' },
+          wallet: { ...wallet,
+            balance: Number(wallet.balance) - settlement.outOfPocket - newFine,
+            totalOutOfPocket: Number(wallet.totalOutOfPocket || 0) + settlement.outOfPocket,
+            totalFines: Number(wallet.totalFines || 0) + newFine,
+            insurancePaid: Number(wallet.insurancePaid || 0) + settlement.insurancePaid },
+        };
+      });
+    }));
+  };
   const oldWatchRoom = watchRoom;
   watchRoom = function() {
     oldWatchRoom();
@@ -261,7 +328,7 @@
     $('ranking').innerHTML = list.map(([id, p], i) => {
       const wallet = p.wallet;
       const mode = Engine.ROUTES[routeId(p.routeChoice)];
-      return `<div class="rank"><div class="no">${i + 1}</div><div><b>${safeText(p.name || '玩家')}</b><small>${safeText(mode.name)} · ${Number(p.speed || 0)} km/h</small><span class="missionMeta">📍 ${Number(p.visitCount || 0)} 站 · ${Number(p.completedRuns || 0)} 趟</span><span class="v8Money">${wallet ? `財產 ${cash(wallet.balance)}｜事故自付 ${cash(wallet.totalOutOfPocket)}` : '出發前配置保障'}${p.status === 'incident' ? '<br><span class="v8Incident">🧰 正在處理現場</span>' : ''}</span></div><div class="score wealth">${cash(Engine.getWealth(p))}</div></div>`;
+      return `<div class="rank"><div class="no">${i + 1}</div><div><b>${safeText(p.name || '玩家')}</b><small>${safeText(mode.name)} · ${Number(p.speed || 0)} km/h</small><span class="missionMeta">📍 ${Number(p.visitCount || 0)} 站 · ${Number(p.completedRuns || 0)} 趟</span><span class="v8Money">${wallet ? `財產 ${cash(wallet.balance)}｜事故自付 ${cash(wallet.totalOutOfPocket)}｜罰款 ${cash(wallet.totalFines)}` : '出發前配置保障'}${p.status === 'incident' ? '<br><span class="v8Incident">🧰 正在處理現場</span>' : ''}</span></div><div class="score wealth">${cash(Engine.getWealth(p))}</div></div>`;
     }).join('');
     $('mAcc').textContent = Object.values(players).filter(p => p.status === 'incident' && !p.incident?.practice).length;
     $('createBtn').disabled = running || starting || roomMutationPending;
@@ -424,9 +491,9 @@
   const oldShowFinal = showFinalPodium;
   showFinalPodium = function() {
     oldShowFinal();
-    $('financialReport').innerHTML = '<table><caption>本局風險管理帳本（虛擬金）</caption><thead><tr><th>學生</th><th>初始財產</th><th>任務收入</th><th>保費</th><th>保險承擔</th><th>事故自付</th><th>剩餘資金</th></tr></thead><tbody>' + scoreRank().map(([, p]) => {
+    $('financialReport').innerHTML = '<table><caption>本局風險管理帳本（虛擬金）</caption><thead><tr><th>學生</th><th>初始財產</th><th>任務收入</th><th>保費</th><th>保險承擔</th><th>事故自付</th><th>未投保模擬罰款</th><th>剩餘資金</th></tr></thead><tbody>' + scoreRank().map(([, p]) => {
       const w = p.wallet || {};
-      return `<tr><td>${safeText(p.name || '玩家')}</td><td>${cash(w.initialAssets)}</td><td>${cash(w.missionIncome)}</td><td>${cash(w.premium)}</td><td>${cash(w.insurancePaid)}</td><td>${cash(w.totalOutOfPocket)}</td><td>${cash(w.balance)}</td></tr>`;
+      return `<tr><td>${safeText(p.name || '玩家')}</td><td>${cash(w.initialAssets)}</td><td>${cash(w.missionIncome)}</td><td>${cash(w.premium)}</td><td>${cash(w.insurancePaid)}</td><td>${cash(w.totalOutOfPocket)}</td><td>${cash(w.totalFines)}</td><td>${cash(w.balance)}</td></tr>`;
     }).join('') + '</tbody></table>';
   };
 

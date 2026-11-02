@@ -11,7 +11,7 @@ window.StudentV8 = (() => {
   const game = () => window.RISK_GAME;
   const role = id => game().roleFor(id || state.role || 'office');
   const plan = id => game().planFor(id || state.insurancePlan || 'basic');
-  const planLabels = { basic: ['基本', '保人身'], liability: ['保對方', '人身＋對方財物'], complete: ['保雙方', '人身＋雙方車損'] };
+  const planLabels = { uninsured: ['不投保', '違規｜事故查驗會罰款'], basic: ['只保強制險', '保人身、不保財物'], complete: ['強制＋財損', '人身＋雙方財損'] };
   const planLabel = id => planLabels[id] || planLabels.basic;
   const finished = () => ['finished', 'closed'].includes(roomStatus);
   const canDrive = () => !finished() && roomStatus === 'running' && playerStatus === 'driving';
@@ -26,7 +26,7 @@ window.StudentV8 = (() => {
 
   function mount() {
     renderSetup(); renderRoutes();
-    el('walletPanel').innerHTML = '<div class="walletHeading"><span>💰 目前財產</span><small id="playerRank">等待發車</small></div><div class="walletGrid"><div><strong id="walletBalance"><span id="hScore">等待出發</span></strong></div><div><small>工作收入</small><b id="walletIncome">$0</b></div><div><small>事故自付</small><b id="walletSelfPay">$0</b></div></div><p id="walletPlan" class="coverLine">出發前選保障，出事自動結算。</p>';
+    el('walletPanel').innerHTML = '<div class="walletHeading"><span>💰 目前財產</span><small id="playerRank">等待發車</small></div><div class="walletGrid"><div><strong id="walletBalance"><span id="hScore">等待出發</span></strong></div><div><small>工作收入</small><b id="walletIncome">$0</b></div><div><small>事故扣款</small><b id="walletSelfPay">$0</b></div></div><p id="walletPlan" class="coverLine">出發前選保障，出事自動結算。</p><p id="walletFineNote" class="walletFineNote"></p>';
     const originalReady = el('readyBtn').onclick;
     el('readyBtn').onclick = async () => {
       if (locked || !playerRef || !state.vehicle || !state.role || !state.scenario || state.speed == null) return;
@@ -49,7 +49,7 @@ window.StudentV8 = (() => {
     const target = el('strategySetup');
     if (!target || !game()) return;
     const selectedRole = role(), selectedPlan = plan();
-    target.innerHTML = `<div class="roleBudget"><span>${esc(selectedRole.name)}｜起始 ${money(selectedRole.startingWealth)}</span><small>每完成一站＋${money(selectedRole.stationIncome)} · 每站至少 ${selectedRole.workSeconds} 秒</small></div><h3>🛡️ 選一次保障，出事自動算</h3><div class="planCards">${Object.values(game().PLANS).map(p => `<button type="button" data-plan="${esc(p.id)}" class="planCard ${selectedPlan.id === p.id ? 'selected' : ''}" aria-pressed="${selectedPlan.id === p.id}" ${locked ? 'disabled' : ''}><span class="planName">${planLabel(p.id)[0]}</span><strong>${money(p.premium)}</strong><small>${planLabel(p.id)[1]}</small></button>`).join('')}</div><div class="budgetPreview"><span>扣除保障費後出發財產</span><strong id="budgetRemaining">${money(selectedRole.startingWealth - selectedPlan.premium)}</strong></div><details class="setupDetails"><summary>保障怎麼分？</summary><p>基本含符合條件的人身保障；「保對方」再補對方財物；「保雙方」也補自己的車損。保障不能防止事故，未保障或超過額度的部分會扣自己的錢。金額為遊戲設定，實際給付依責任、法律與契約條件判斷。</p></details><h3>🧭 先選一條路</h3><div class="setupRoutes">${Object.values(game().ROUTES).map(r => `<button type="button" data-setup-route="${esc(r.id)}" class="routeCard ${state.routeChoice === r.id ? 'selected' : ''}" aria-pressed="${state.routeChoice === r.id}" title="${esc(r.description)}" ${locked ? 'disabled' : ''}><b>${esc(r.name)}</b><small>${esc(r.riskLabel)}</small></button>`).join('')}</div><p class="mutedNote">行車中可以改道；保障準備完成後鎖定。</p><p id="strategyError" class="inlineError" role="alert"></p>`;
+    target.innerHTML = `<div class="roleBudget"><span>${esc(selectedRole.name)}｜起始 ${money(selectedRole.startingWealth)}</span><small>每完成一站＋${money(selectedRole.stationIncome)} · 每站至少 ${selectedRole.workSeconds} 秒</small></div><h3>🛡️ 選一次保障，出事自動算</h3><div class="planCards">${Object.values(game().PLANS).map(p => `<button type="button" data-plan="${esc(p.id)}" class="planCard ${p.id === 'uninsured' ? 'uninsuredPlan' : ''} ${selectedPlan.id === p.id ? 'selected' : ''}" aria-pressed="${selectedPlan.id === p.id}" ${locked ? 'disabled' : ''}><span class="planName">${planLabel(p.id)[0]}${p.id === 'uninsured' ? '<em>未保強制險</em>' : ''}</span><strong>${money(p.premium)}</strong><small>${planLabel(p.id)[1]}</small></button>`).join('')}</div><div class="budgetPreview"><span>扣除保障費後出發財產</span><strong id="budgetRemaining">${money(selectedRole.startingWealth - selectedPlan.premium)}</strong></div><details class="setupDetails"><summary>保障怎麼分？</summary><p>「不投保」沒有強制險與財損保障，屬違規選擇；「只保強制險」保障符合條件的受害人人身，不包含車損；「強制＋財損」是本遊戲合併第三人財損與自己車損的教學方案。本遊戲在事故後查驗，未投保的模擬罰款為 ${money(game().UNINSURED_FINE)}；現實未投保也可能在其他情況查獲，法定處分依規定辦理。未投保不代表受害人沒有其他救濟途徑，但駕駛仍可能負賠償或追償責任。</p></details><h3>🧭 先選一條路</h3><div class="setupRoutes">${Object.values(game().ROUTES).map(r => `<button type="button" data-setup-route="${esc(r.id)}" class="routeCard ${state.routeChoice === r.id ? 'selected' : ''}" aria-pressed="${state.routeChoice === r.id}" title="${esc(r.description)}" ${locked ? 'disabled' : ''}><b>${esc(r.name)}</b><small>${esc(r.riskLabel)}</small></button>`).join('')}</div><p class="mutedNote">行車中可以改道；保障準備完成後鎖定。</p><p id="strategyError" class="inlineError" role="alert"></p>`;
     target.querySelectorAll('[data-plan]').forEach(button => button.onclick = () => {
       if (locked) return; state.insurancePlan = button.dataset.plan; renderSetup();
     });
@@ -123,7 +123,9 @@ window.StudentV8 = (() => {
     const selectedRole = role(player.roleId); state.routeChoice = selectedRoute.id;
     const wallet = player.wallet || {};
     el('hScore').textContent = money(wallet.balance ?? selectedRole.startingWealth - selectedPlan.premium);
-    el('walletIncome').textContent = money(wallet.missionIncome); el('walletSelfPay').textContent = money(wallet.totalOutOfPocket);
+    el('walletIncome').textContent = money(wallet.missionIncome);
+    el('walletSelfPay').textContent = money(Number(wallet.totalOutOfPocket || 0) + Number(wallet.totalFines || 0));
+    el('walletFineNote').textContent = Number(wallet.totalFines || 0) > 0 ? `事故扣款含未投保模擬罰款 ${money(wallet.totalFines)}` : '';
     el('walletPlan').textContent = `🛡️ ${planLabel(selectedPlan.id)[0]}：${planLabel(selectedPlan.id)[1]}｜事故自動結算`;
     el('walletBalance').classList.toggle('negative', Number(wallet.balance) < 0);
     const info = player.routeInfo || {}, eta = Number(info.etaSeconds);
@@ -146,6 +148,7 @@ window.StudentV8 = (() => {
       else renderSettlement(incident);
       if (incident.stage !== 'settled') requestAnimationFrame(() => panel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }));
     }
+    renderInspection(incident);
     const feedback = el('incidentFeedback');
     if (feedback) feedback.textContent = pendingAction ? actionWaitMessage() : (incident.feedback || '先確認現場安全，再依序處理。');
     panel.querySelectorAll('[data-incident-action]').forEach(button => {
@@ -155,9 +158,22 @@ window.StudentV8 = (() => {
     });
     if (el('sceneProgress')) el('sceneProgress').textContent = `${['secure','call','photo','documents'].filter(a => incident.actions?.[a]).length} / 4`;
   }
+  function renderInspection(incident) {
+    const target = el('insuranceInspection');
+    if (!target) return;
+    const inspection = incident.insuranceInspection;
+    target.hidden = !inspection?.checked;
+    if (!inspection?.checked) return;
+    target.classList.toggle('violation', !!inspection.violation);
+    if (inspection.violation) {
+      target.textContent = incident.practice
+        ? `🧰 演練查驗：未投保強制險；模擬罰款 ${money(inspection.simulatedFine || game().UNINSURED_FINE)}，本次未扣款。`
+        : `⚠️ 事故查驗：未投保強制險${Number(inspection.fine || 0) > 0 ? `；模擬罰款 ${money(inspection.fine)} 已扣款。` : '。'}`;
+    } else target.textContent = '✅ 事故查驗完成：已投保強制險，沒有未投保罰款。';
+  }
   function renderScene(incident) {
-    const actions = [['secure','🚧','確認安全、警示後方'],['call','📞','查看傷者、通報處理'],['photo','📸','拍攝位置與車損'],['documents','📁','整理資料，自動結算']];
-    el('incidentPanel').innerHTML = `<div class="incidentHeading"><h3>${incident.practice ? '🧰 處置演練（不扣款）' : '💥 處理事故現場'}</h3><b id="sceneProgress">0 / 4</b></div><p class="scenePrompt">先顧安全與救護，再留下紀錄。保障會自動分擔，其他同學繼續行車。</p><div class="sceneActions">${actions.map(([id,icon,label]) => `<button type="button" data-incident-action="${id}"><span class="toolIcon">${icon}</span><b>${label}</b><span class="actionCheck">處理</span></button>`).join('')}</div><details class="incidentDetails"><summary>補充現場資訊</summary><p>${esc(incident.context || '')}</p><button type="button" data-incident-action="witness">🙋 保留目擊者聯絡資料</button></details><p id="incidentFeedback" class="incidentFeedback" role="status"></p>`;
+    const actions = [['secure','🚧','確認安全、警示後方'],['call','📞','查看傷者、通報並查驗保險'],['photo','📸','拍攝位置與車損'],['documents','📁','整理資料，自動結算']];
+    el('incidentPanel').innerHTML = `<div class="incidentHeading"><h3>${incident.practice ? '🧰 處置演練（不扣款）' : '💥 處理事故現場'}</h3><b id="sceneProgress">0 / 4</b></div><p class="scenePrompt">先顧安全與救護，再留下紀錄。通報處理時會查驗強制險，其他同學繼續行車。</p><p id="insuranceInspection" class="insuranceInspection" role="status" hidden></p><div class="sceneActions">${actions.map(([id,icon,label]) => `<button type="button" data-incident-action="${id}"><span class="toolIcon">${icon}</span><b>${label}</b><span class="actionCheck">處理</span></button>`).join('')}</div><details class="incidentDetails"><summary>補充現場資訊</summary><p>${esc(incident.context || '')}</p><button type="button" data-incident-action="witness">🙋 保留目擊者聯絡資料</button></details><p id="incidentFeedback" class="incidentFeedback" role="status"></p>`;
     el('incidentPanel').querySelectorAll('[data-incident-action]').forEach(button => button.onclick = () => sendAction(button.dataset.incidentAction));
   }
   function renderClaim(incident) {
@@ -165,7 +181,10 @@ window.StudentV8 = (() => {
   }
   function renderSettlement(incident) {
     const settlement = incident.settlement || {};
-    el('incidentPanel').innerHTML = `<div class="incidentHeading"><h3>✅ 已恢復行車</h3><button type="button" id="dismissReceipt">繼續任務 ✕</button></div><div class="receiptSummary"><span>保障分擔 <b>${money(settlement.insurancePaid)}</b></span><span>${incident.practice ? '演練自付（未扣款）' : '這次自付'} <strong>${money(settlement.outOfPocket)}</strong></span></div><details class="incidentDetails"><summary>查看明細</summary><div class="receiptRows">${(settlement.lines || []).map(line => `<div><b>${esc(line.label)}</b><span>保障 ${money(line.paid)} · 自付 ${money(line.selfPay)}</span></div>`).join('')}</div><p class="mutedNote">${esc(incident.learningNote || '')}</p></details><p id="incidentFeedback" class="incidentFeedback" role="status"></p>`;
+    const fine = Number(settlement.fine ?? incident.insuranceInspection?.fine ?? 0);
+    const outOfPocket = Number(settlement.outOfPocket || 0);
+    const total = Number(settlement.totalDeduction ?? outOfPocket + fine);
+    el('incidentPanel').innerHTML = `<div class="incidentHeading"><h3>✅ 已恢復行車</h3><button type="button" id="dismissReceipt">繼續任務 ✕</button></div><p id="insuranceInspection" class="insuranceInspection" hidden></p><div class="receiptSummary"><span>保障分擔 <b>${money(settlement.insurancePaid)}</b></span><span>損失自付 <strong id="receiptOutOfPocket">${money(outOfPocket)}</strong></span>${fine > 0 ? `<span>未投保模擬罰款 <strong id="receiptFine">${money(fine)}</strong></span>` : ''}<span class="receiptTotal">${incident.practice ? '演練合計（未扣款）' : '本次合計扣款'} <strong id="receiptTotal">${money(total)}</strong></span></div><details class="incidentDetails"><summary>查看明細</summary><div class="receiptRows">${(settlement.lines || []).map(line => `<div><b>${esc(line.label)}</b><span>保障 ${money(line.paid)} · 自付 ${money(line.selfPay)}</span></div>`).join('')}</div><p class="mutedNote">${esc(incident.learningNote || '')}</p><p class="mutedNote">罰款為遊戲模擬，並非法定罰鍰報價；現實未投保也可能在事故以外查獲。</p></details><p id="incidentFeedback" class="incidentFeedback" role="status"></p>`;
     el('dismissReceipt').onclick = () => { dismissedReceipt = incident.id; el('incidentPanel').classList.add('hidden'); };
   }
   async function sendAction(action) {

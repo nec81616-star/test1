@@ -59,8 +59,11 @@ async function eventually(page, predicate, argument, label = 'condition') {
       await page.locator('#waitBox').waitFor({ state: 'visible' });
       return page;
     }
-    const student = await addStudent('小安', 'liability', 'office');
+    const student = await addStudent('小安', 'basic', 'office');
     const other = await addStudent('小晴', 'complete', 'student');
+    const uninsured = await addStudent('小勇', 'uninsured', 'caregiver');
+    const pending = await addStudent('小文', 'uninsured', 'public');
+    const uninsuredId = await uninsured.evaluate(() => uid), pendingId = await pending.evaluate(() => uid);
     const id = await student.evaluate(() => uid), otherId = await other.evaluate(() => uid);
     assert.notEqual(id, otherId);
     const beforeStart = await host.evaluate(() => roundSerial);
@@ -69,7 +72,7 @@ async function eventually(page, predicate, argument, label = 'condition') {
     await eventually(host, () => running && !starting, null, 'one successful departure');
     await host.evaluate(() => { Math.random = () => 0.99; }); // deterministic hazard checks, normal timer scheduling is retained
     const initial = await host.evaluate(({ id, otherId }) => ({
-      office: RISK_GAME.newWallet('liability', 'office'),
+      office: RISK_GAME.newWallet('basic', 'office'),
       student: RISK_GAME.newWallet('complete', 'student'),
       actualOffice: players[id].wallet,
       actualStudent: players[otherId].wallet,
@@ -81,7 +84,9 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.equal(await host.locator('#createBtn').isDisabled(), true);
     await host.evaluate(async ({ id, otherId }) => { await roomRef.child(`players/${id}/score`).set(0); await roomRef.child(`players/${otherId}/score`).set(999999); }, { id, otherId });
     await eventually(host, ({ id, otherId }) => players[id].score === 0 && players[otherId].score === 999999, { id, otherId });
-    assert.equal(await host.evaluate(() => scoreRank()[0][0]), initial.office.balance > initial.student.balance ? id : otherId);
+    assert.equal(await host.evaluate(() => scoreRank()[0][0]), uninsuredId);
+    assert.deepEqual(await student.locator('[data-plan]').evaluateAll(buttons => buttons.map(b=>b.dataset.plan)), ['uninsured','basic','complete']);
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,uninsuredId),0);
     assert.doesNotMatch(await host.locator('#ranking').innerText(), /積分|\d+\s*分/);
     console.log('PASS: concise insurance, role-specific starting wealth, single departure and property-only ranking');
 
@@ -97,8 +102,8 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.notEqual(differentPaths.main, differentPaths.shortcut);
     console.log('PASS: student route choices change actual pathfinding');
 
-    async function finishScene(page) {
-      for (const action of ['secure', 'call', 'photo', 'documents']) {
+    async function finishScene(page, actions = ['secure', 'call', 'photo', 'documents']) {
+      for (const action of actions) {
         await page.locator(`[data-incident-action="${action}"]`).click();
         if (action !== 'documents') await eventually(page, action => document.querySelector(`[data-incident-action="${action}"]`)?.getAttribute('aria-pressed') === 'true', action, `scene ${action}`);
       }
@@ -114,13 +119,53 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.equal(await student.locator('#claim-medical').count(), 0);
     assert.equal(await student.locator('#settleIncident').count(), 0);
     const settled = await host.evaluate(id => players[id], id);
-    assert.equal(settled.wallet.totalOutOfPocket, 3500);
-    assert.equal(settled.wallet.insurancePaid, 5000);
-    assert.equal(settled.wallet.balance, initial.office.balance + settled.wallet.missionIncome - 3500);
+    assert.equal(settled.wallet.totalOutOfPocket, 6500);
+    assert.equal(settled.wallet.totalFines, 0);
+    assert.equal(settled.incident.insuranceInspection.hasCompulsory, true);
+    assert.equal(settled.wallet.insurancePaid, 2000);
+    assert.equal(settled.wallet.balance, initial.office.balance + settled.wallet.missionIncome - 6500);
     await student.evaluate(async () => { const p = (await playerRef.once('value')).val(); await playerRef.child('actionRequest').set({ id: 'repeat', incidentId: p.incident.id, action: 'settle' }); });
     await eventually(host, id => !players[id].actionRequest, id, 'duplicate settlement acknowledgement');
-    assert.equal(await host.evaluate(id => players[id].wallet.totalOutOfPocket, id), 3500);
+    assert.equal(await host.evaluate(id => players[id].wallet.totalOutOfPocket, id), 6500);
     console.log('PASS: safety actions automatically apply existing coverage and charge personal loss exactly once');
+
+    // An accident alone does not charge a fine. The valid police call does,
+    // using the departure plan even if a client tampers with its displayed plan.
+    await host.evaluate(id => beginPersonalIncident(id,'collision',false),uninsuredId);
+    await uninsured.locator('[data-incident-action="secure"]').waitFor({state:'visible'});
+    assert.equal(await host.evaluate(id => players[id].wallet.totalFines,uninsuredId),0);
+    await uninsured.locator('[data-incident-action="photo"]').click();
+    await eventually(uninsured,()=>document.getElementById('incidentFeedback').textContent.includes('尚未確認安全'),null,'uninsured safety check');
+    assert.equal(await host.evaluate(id => players[id].wallet.totalFines,uninsuredId),0);
+    await finishScene(uninsured,['secure']);
+    await uninsured.evaluate(()=>playerRef.update({insurancePlan:'complete'}));
+    await finishScene(uninsured,['call']);
+    await eventually(host,id=>players[id].incident.insuranceInspection?.checked,uninsuredId,'accident insurance inspection');
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,uninsuredId),3000);
+    assert.equal(await host.evaluate(id=>players[id].incident.insuranceInspection.hasCompulsory,uninsuredId),false);
+    assert.match(await uninsured.locator('#insuranceInspection').innerText(),/未投保.*3,000/);
+    await uninsured.evaluate(async()=>{const p=(await playerRef.once('value')).val();await playerRef.child('actionRequest').set({id:'repeat-call',incidentId:p.incident.id,action:'call'});});
+    await eventually(host,id=>!players[id].actionRequest,uninsuredId,'duplicate police call');
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,uninsuredId),3000);
+    await uninsured.evaluate(()=>playerRef.update({insurancePlan:'uninsured'}));
+    await finishScene(uninsured,['photo','documents']);
+    await eventually(host,id=>players[id].incident.stage==='settled',uninsuredId,'uninsured compensation');
+    const uninsuredResult=await host.evaluate(id=>players[id],uninsuredId);
+    assert.equal(uninsuredResult.wallet.totalOutOfPocket,8500);
+    assert.equal(uninsuredResult.wallet.totalFines,3000);
+    assert.equal(uninsuredResult.wallet.insurancePaid,0);
+    assert.equal(uninsuredResult.wallet.balance,uninsuredResult.wallet.initialAssets+uninsuredResult.wallet.missionIncome-11500);
+    assert.equal(uninsuredResult.incident.settlement.totalDeduction,11500);
+    assert.match(await uninsured.locator('#receiptTotal').innerText(),/11,500/);
+    // A rehearsal can demonstrate the same violation without deducting money.
+    const rehearsalBefore=uninsuredResult.wallet.balance;
+    await host.evaluate(id=>beginPersonalIncident(id,'collision',true),uninsuredId);
+    await finishScene(uninsured);
+    await eventually(host,id=>players[id].incident.stage==='settled',uninsuredId,'uninsured practice');
+    assert.equal(await host.evaluate(id=>players[id].wallet.balance,uninsuredId),rehearsalBefore);
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,uninsuredId),3000);
+    assert.equal(await host.evaluate(id=>players[id].incident.insuranceInspection.fine,uninsuredId),0);
+    console.log('PASS: uninsured policy is discovered at the valid accident call; one fine, locked coverage, self-paid loss and no-charge rehearsal');
 
     await host.locator('#practicePlayer').selectOption(otherId);
     await host.locator('#personalPracticeBtn').click();
@@ -202,6 +247,17 @@ async function eventually(page, predicate, argument, label = 'condition') {
     await student.screenshot({ path: path.join(ARTIFACTS, 'student-mobile.png'), fullPage: true });
     await host.screenshot({ path: path.join(ARTIFACTS, 'teacher-desktop.png'), fullPage: true });
 
+    // Unfinished real accidents must not become a way to win by avoiding the
+    // police call or refusing to finish documentation before the round ends.
+    await host.evaluate(id=>beginPersonalIncident(id,'collision',false),uninsuredId);
+    await finishScene(uninsured,['secure','call']);
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,uninsuredId),6000);
+    await host.evaluate(id=>beginPersonalIncident(id,'collision',false),pendingId);
+    assert.equal(await host.evaluate(id=>players[id].wallet.totalFines,pendingId),0);
+    const pendingBefore=await host.evaluate(({uninsuredId,pendingId})=>({
+      called:players[uninsuredId].wallet.balance,uncalled:players[pendingId].wallet.balance,
+    }),{uninsuredId,pendingId});
+
     // Let the actual active-work clock end the round, crossing any scheduled
     // automatic questions; neither questions nor the result window consume work time.
     for (let i = 0; i < 40 && await host.evaluate(() => running); i++) {
@@ -220,6 +276,20 @@ async function eventually(page, predicate, argument, label = 'condition') {
     assert.equal(await student.locator('#incidentPanel').isVisible(), false);
     assert.match(await host.locator('#financialReport').innerText(), /財產|資金/);
     assert.doesNotMatch(await host.locator('#podium').innerText(), /\d+\s*分/);
+    const ending=await host.evaluate(({uninsuredId,pendingId})=>({called:players[uninsuredId],uncalled:players[pendingId]}),{uninsuredId,pendingId});
+    assert.equal(ending.called.wallet.totalFines,6000,'the already-issued fine is not charged twice at closing');
+    assert.equal(ending.called.wallet.totalOutOfPocket,17000);
+    assert.equal(ending.called.wallet.balance,pendingBefore.called-8500);
+    assert.equal(ending.uncalled.wallet.totalFines,3000);
+    assert.equal(ending.uncalled.wallet.totalOutOfPocket,8500);
+    assert.equal(ending.uncalled.wallet.balance,pendingBefore.uncalled-11500);
+    for(const player of [ending.called,ending.uncalled]){
+      assert.equal(player.incident.stage,'settled');assert.equal(player.incident.sceneIncomplete,true);
+      assert.equal(player.incident.closedByRoundEnd,true);assert.notEqual(player.incident.actions?.documents,true);
+    }
+    assert.notEqual(ending.uncalled.incident.actions?.call,true,'financial closing never invents completed safety actions');
+    assert.match(await host.locator('#financialReport').innerText(),/罰款/);
+    console.log('PASS: unfinished accidents are financially closed before ranking without duplicate fines or fabricated safety actions');
     const stoppedQuestion = await host.evaluate(() => currentQuestion?.id);
     await host.clock.fastForward(60000);
     assert.equal(await host.evaluate(() => running), false);
